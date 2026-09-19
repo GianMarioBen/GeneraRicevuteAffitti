@@ -51,6 +51,27 @@ Su macOS si possono compilare in .scpt con:
    NON toccato: ricerca numero, file picker, invio PDF, verifica anteprima,
    composer, invio messaggio, server, LaunchAgent, UI del Generatore.
 
+6d. WhatsApp_Engine_v123.applescript (SOLO DIAGNOSTICA, nessun fix ancora)
+   Test reale v122 su Mamma Mac: il motore non arriva NEMMENO al click
+   sulla riga risultato / ai due TAB+SPACE. Fallisce prima, nella verifica
+   che il numero sia stato incollato nel campo "Search all chats": anche
+   con "Forza invio a" che ora funziona (numero 3338397583 corretto),
+   il log mostra "Numero non rilevato... provo inserimento JS diretto...
+   FAIL: non riesco a scrivere il numero", nonostante lo screenshot
+   mostri il numero scritto correttamente e visibile nella barra di
+   ricerca. Questo stesso fallimento è identico nei log di v120 e v121:
+   quindi il fix TAB+TAB+SPACE non è MAI stato davvero messo alla prova
+   finora, perché l'esecuzione si ferma prima.
+   v123 aggiunge SOLO una diagnostica (nessun cambio di comportamento):
+   se anche l'inserimento JS diretto fallisce, prima di arrendersi
+   fotografa TUTTI i campi di testo visibili in tutta la pagina (non solo
+   dentro #side, che potrebbe non esistere più con l'attuale WhatsApp
+   Web) con tag/ruolo/contenuto di ciascuno, e logga tutto. Serve a capire
+   se il selettore CSS usato per trovare il campo di ricerca (root
+   #side + input/[contenteditable]/[role=textbox]) è quello sbagliato
+   per la versione di WhatsApp Web attualmente in uso sul Mac della
+   Mammetta.
+
 6c. Cruscotto_Affitti_Server.py — fix bug "Forza invio a" ignorato
    BUG CONFERMATO dal test di Mario: con "Forza invio a" attivo nel SetUp,
    l'invio partiva comunque verso il vecchio destinatario (Ahmed) invece
@@ -77,7 +98,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v122.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v123.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -89,7 +110,8 @@ Su macOS si possono compilare in .scpt con:
      - Cruscotto_Affitti_Server.py precedente
      - Generatore_Ricevute_Condominio.html precedente
      - il plist del LaunchAgent precedente
-   Poi installa: WhatsApp_Engine.scpt compilato da v122, Generatore v120
+   Poi installa: WhatsApp_Engine.scpt compilato da v123 (solo diagnostica),
+   Generatore v120
    (con badge versione motore), server Python (con fix Forza invio a),
    runner e LaunchAgent; infine ricarica il LaunchAgent e verifica
    /api/health. Generato dallo script build_installer.py (nella cartella
@@ -104,7 +126,7 @@ Su macOS si possono compilare in .scpt con:
    ferma con un avviso invece di installare qualcosa di incompleto.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v122.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v123.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

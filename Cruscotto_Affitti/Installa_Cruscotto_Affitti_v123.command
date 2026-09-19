@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer Cruscotto Affitti v122 — TUTTO-IN-UNO — per il Mac della Mammetta
+# Installer Cruscotto Affitti v123 — TUTTO-IN-UNO — per il Mac della Mammetta
 # (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
 # da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
 #
 # Cosa fa:
 #   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
 #   2. Estrae dai propri dati incorporati e installa:
-#      - WhatsApp_Engine.scpt (compilato da v122 — fix apertura chat con TAB+TAB+SPACE)
+#      - WhatsApp_Engine.scpt (compilato da v123 — diagnostica campo ricerca)
 #      - Generatore_Ricevute_Condominio.html (v120, con badge versione motore)
 #      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
 #      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
@@ -53,7 +53,7 @@ fail() {
   exit 1
 }
 
-log "=== Installer Cruscotto Affitti v122 (tutto-in-uno) avviato ==="
+log "=== Installer Cruscotto Affitti v123 (tutto-in-uno) avviato ==="
 
 # --- 0. Controlli di base -----------------------------------------------
 
@@ -75,7 +75,7 @@ log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
 
 # --- 1. Estrae i file incorporati in questo installer ---------------------
 
-cat > "$PAYLOAD_DIR/WhatsApp_Engine_v122.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_v123.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
 property dataDir : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute"
 property pointerPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Ricevuta_Da_Inviare.txt"
 property messagePath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Messaggio_Da_Inviare.txt"
@@ -409,6 +409,21 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 		end try
 		if jsResult is not "OK" then
 			my appendLog("FAIL: non riesco a scrivere il numero nel Search all chats.")
+
+			-- DIAGNOSTICA v123: prima di arrendersi, fotografiamo TUTTI i
+			-- campi di testo visibili in pagina (non solo dentro #side,
+			-- che potrebbe non esistere più con questa versione di
+			-- WhatsApp Web) con tag/ruolo/contenuto, così al prossimo
+			-- test sappiamo perché il numero non viene riconosciuto anche
+			-- se è visibilmente scritto nella barra di ricerca.
+			set jsCode to "(function(){try{const sideExists=!!document.querySelector('#side');const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>20&&r.height>10&&s.display!=='none'&&s.visibility!=='hidden'};const all=[...document.querySelectorAll('input,[contenteditable],[role=\"textbox\"],[role=\"searchbox\"]')];const rows=all.map(e=>{const v=vis(e);const tag=(e.tagName||'').toLowerCase();const role=e.getAttribute('role')||'';const ce=e.getAttribute('contenteditable')||'';const txt=((e.value||e.innerText||e.textContent||'')+'').trim().slice(0,30);return tag+'(role='+role+',ce='+ce+',vis='+v+')=['+txt+']'}).join(' | ');return 'sideExists='+sideExists+' totale='+all.length+' :: '+rows}catch(x){return 'ERR:'+x}})()"
+			try
+				set diagSnapshot to my runWhatsAppJS(jsCode)
+			on error
+				set diagSnapshot to "ERR runWhatsAppJS"
+			end try
+			my appendLog("DIAGNOSTICA campo ricerca non trovato: " & diagSnapshot)
+
 			return false
 		end if
 	end if
@@ -1012,7 +1027,7 @@ end performSend
 on run
 	try
 		do shell script "/usr/bin/touch " & quoted form of runLogPath
-		my appendLog("=== Avvio Engine WhatsApp v122 ===")
+		my appendLog("=== Avvio Engine WhatsApp v123 ===")
 
 		set pdfName to my readTextFile(pointerPath)
 		set messageText to my readTextFile(messagePath)
@@ -5496,18 +5511,18 @@ backup_if_exists "$PLIST_TARGET" "LaunchAgent_Plist"
 # (ElencoRicevute) perché questo installer non lo scrive mai.
 log "NON toccato (come da regola): $DATA_DIR"
 
-# --- 3. Compila ed installa il motore WhatsApp v122 -----------------------
+# --- 3. Compila ed installa il motore WhatsApp v123 -----------------------
 
 command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
 
-TMP_SCPT="/tmp/WhatsApp_Engine_v122_$STAMP.scpt"
-osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v122.applescript" 2>>"$INSTALL_LOG" \
-  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v122.applescript. Dettagli in $INSTALL_LOG"
+TMP_SCPT="/tmp/WhatsApp_Engine_v123_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v123.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v123.applescript. Dettagli in $INSTALL_LOG"
 
 cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
   || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
 rm -f "$TMP_SCPT"
-log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v122)"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v123)"
 
 # Scrive un file di versione che il server legge e mostra nel Generatore
 # HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
@@ -5517,9 +5532,9 @@ ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
 INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
 cat > "$ENGINE_VERSION_FILE" <<EOF
 {
-  "version": "v122",
+  "version": "v123",
   "installedAt": "$INSTALLED_AT_HUMAN",
-  "sourceFile": "WhatsApp_Engine_v122.applescript"
+  "sourceFile": "WhatsApp_Engine_v123.applescript"
 }
 EOF
 log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
@@ -5573,7 +5588,7 @@ if [ -n "$HEALTH" ]; then
   log "Server risponde: $HEALTH"
   MSG="Installazione completata.
 
-Motore WhatsApp: v122 (fix apertura chat con TAB+TAB+SPACE)
+Motore WhatsApp: v123 (diagnostica: perché il numero non viene riconosciuto nel campo ricerca)
 Generatore: v120 (con badge versione motore)
 Server: attivo su http://127.0.0.1:8765
 
@@ -5582,7 +5597,7 @@ $BACKUP_DIR
 
 I dati degli affittuari (ElencoRicevute) NON sono stati toccati."
   log "=== Installazione completata con successo ==="
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v122\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v123\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 else
   log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
   MSG="I file sono stati installati e il backup è in:
@@ -5591,7 +5606,7 @@ $BACKUP_DIR
 Ma il server su 127.0.0.1:8765 non ha ancora risposto.
 Prova a riavviare il Mac, oppure controlla il log:
 /tmp/Cruscotto_Affitti_Autostart.log"
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v122\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v123\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 fi
 
 log "Log completo di questa installazione: $INSTALL_LOG"

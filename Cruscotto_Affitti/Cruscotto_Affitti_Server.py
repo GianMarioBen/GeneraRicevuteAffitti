@@ -23,6 +23,19 @@ HOST = os.environ.get("CRUSCOTTO_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CRUSCOTTO_PORT", "8765"))
 MAX_UPLOAD = 80 * 1024 * 1024
 
+APP_SUPPORT_DIR = os.path.expanduser("~/Library/Application Support/CruscottoAffitti")
+ENGINE_VERSION_FILE = os.path.join(APP_SUPPORT_DIR, "WhatsApp_Engine_Version.json")
+
+def read_whatsapp_engine_info():
+    try:
+        with open(ENGINE_VERSION_FILE, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if isinstance(data, dict) and data.get("version"):
+            return data
+    except Exception:
+        pass
+    return None
+
 def safe_name(raw):
     name = unquote(raw or "").strip()
     if not name:
@@ -77,6 +90,7 @@ class Handler(BaseHTTPRequestHandler):
                 "mode": "server-filesystem",
                 "dataDir": DATA_DIR,
                 "version": 7,
+                "whatsappEngine": read_whatsapp_engine_info(),
             })
             return
 

@@ -121,6 +121,21 @@ cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
 rm -f "$TMP_SCPT"
 log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v121)"
 
+# Scrive un file di versione che il server legge e mostra nel Generatore
+# HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
+# quale motore WhatsApp è davvero installato, senza doversi fidare a
+# occhio del numero di versione della pagina HTML (che resta v120).
+ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
+INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
+cat > "$ENGINE_VERSION_FILE" <<EOF
+{
+  "version": "v121",
+  "installedAt": "$INSTALLED_AT_HUMAN",
+  "sourceFile": "WhatsApp_Engine_v121.applescript"
+}
+EOF
+log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
+
 # --- 3. Installa Generatore HTML v120 -------------------------------------
 
 cp -p "$SCRIPT_DIR/Generatore_Ricevute_Condominio_v120.html" "$HTML_TARGET" \

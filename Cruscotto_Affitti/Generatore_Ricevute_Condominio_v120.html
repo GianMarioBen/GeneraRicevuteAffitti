@@ -824,7 +824,7 @@
 <div class="app">
   <div class="panel">
     <div class="app-title-row">
-      <h1>Generatore ricevute <span style="font-size:12px;font-weight:400;color:#666">v120</span></h1>
+      <h1>Generatore ricevute <span style="font-size:12px;font-weight:400;color:#666">v120</span> <span id="whatsappEngineBadge" style="font-size:11px;font-weight:400;color:#888" title="Versione del motore WhatsApp installata sul server locale"></span></h1>
       <div class="title-actions">
         <button type="button" class="advanced-toggle compact-toggle" id="advancedToggleBtn" onclick="toggleAdvancedFields()">
           Mostra più campi
@@ -1335,6 +1335,31 @@ async function localServerHealth(){
     return false;
   }
 }
+
+async function updateWhatsAppEngineBadge(){
+  const badge=$('whatsappEngineBadge');
+  if(!badge) return;
+  if(!LOCAL_SERVER_MODE){
+    badge.textContent='';
+    return;
+  }
+  try{
+    const res=await fetch('/api/health',{cache:'no-store'});
+    if(!res.ok){ badge.textContent='(motore WhatsApp: server non raggiungibile)'; return; }
+    const data=await res.json();
+    const engine=data && data.whatsappEngine;
+    if(engine && engine.version){
+      const when=engine.installedAt ? ' · installato ' + engine.installedAt : '';
+      badge.textContent='(motore WhatsApp: ' + engine.version + when + ')';
+      badge.title='Versione del motore WhatsApp installata sul server locale.\nFile: ' + (engine.sourceFile || 'WhatsApp_Engine.scpt');
+    } else {
+      badge.textContent='(motore WhatsApp: versione non rilevata)';
+    }
+  }catch(e){
+    badge.textContent='(motore WhatsApp: server non raggiungibile)';
+  }
+}
+document.addEventListener('DOMContentLoaded', updateWhatsAppEngineBadge);
 
 
 function $(id){ return document.getElementById(id); }

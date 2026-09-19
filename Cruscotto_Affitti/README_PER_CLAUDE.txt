@@ -24,40 +24,48 @@ Su macOS si possono compilare in .scpt con:
   osacompile -o WhatsApp_Engine_v115.scpt WhatsApp_Engine_v115.applescript
   osacompile -o WhatsApp_Engine_v105.scpt WhatsApp_Engine_v105.applescript
   osacompile -o WhatsApp_Engine_v121.scpt WhatsApp_Engine_v121.applescript
+  osacompile -o WhatsApp_Engine_v122.scpt WhatsApp_Engine_v122.applescript
 
-6. WhatsApp_Engine_v121.applescript (NUOVO — proposta di fix)
-   Parte identica a v115 (ricerca WhatsApp per numero esatto, poi tutto il
-   flusso PDF + messaggio ereditato da v105/v115, invariato).
-   Modificata SOLO la gestione del fallback dentro
-   searchRecipientByPhoneInWhatsApp, cioè esattamente la transizione:
-     risultato trovato in Search all chats
-     → risultato realmente focalizzato
-     → apertura chat
-   che il testimone identifica come unico punto rotto.
+6. WhatsApp_Engine_v121.applescript (primo tentativo di fix — SUPERATO da v122,
+   conservato come riferimento storico)
+   Parte identica a v115. Modificata SOLO la gestione del fallback dentro
+   searchRecipientByPhoneInWhatsApp: dopo il click diretto non confermato,
+   premeva Freccia giù, verificava via document.activeElement che il focus
+   fosse uscito dal campo di ricerca, poi premeva SPACE.
+   ESITO DEL TEST REALE su Mamma Mac (v121, con diagnostica aggiunta):
+   il cursore/focus tastiera RESTAVA nel campo di ricerca anche dopo
+   Freccia giù — quindi SPACE non apriva mai la chat. Confermato da Mario
+   con osservazione diretta: "il cursore è ancora nel campo ricerca".
 
-   Cosa cambia rispetto a v115:
-   - v115, quando il click diretto sul risultato non veniva confermato,
-     rifocalizzava il campo di ricerca e premeva Freccia giù + RETURN
-     (key code 36). Questo NON è mai stato verificato manualmente da Mario
-     come tasto che apre la chat.
-   - v121 rifocalizza il campo di ricerca, preme Freccia giù, poi VERIFICA
-     via document.activeElement che il focus tastiera sia realmente uscito
-     dal campo di ricerca ed entrato nella riga risultato (questo è il
-     "bordo verde" osservato), e SOLO A QUEL PUNTO preme BARRA SPAZIATRICE
-     (key code 49) — esattamente il tasto che Mario ha premuto a mano con
-     successo davanti alla riga con bordo verde. Si ritenta un secondo giro
-     (Freccia giù + SPACE) se il primo non apre la chat, per lasciare tempo
-     a WhatsApp di registrare il focus (evitando l'errore di v116, che
-     premeva SPACE troppo presto). Se anche questo fallisce, resta come
-     ultima rete di sicurezza il vecchio fallback Return di v115, così non
-     si perde nulla della robustezza precedente.
-   - Ogni fase è loggata in modo distinto in
-     /tmp/Invia_Ricevuta_WhatsApp_Helper_v97.log, per poter capire subito,
-     dal prossimo test reale, se è stato SPACE, il secondo tentativo, o il
-     fallback Return ad aprire la chat (o se nessuno dei tre ha funzionato).
+6b. WhatsApp_Engine_v122.applescript (FIX ATTUALE, basato su prova reale)
+   Stessa base di v121/v115/v105 (nessun'altra parte toccata). Unica
+   modifica: nel fallback di searchRecipientByPhoneInWhatsApp, al posto di
+   Freccia giù si usano DUE TAB (key code 48 x2) per spostare davvero il
+   focus tastiera fuori dal campo di ricerca, poi SPACE (key code 49) —
+   esattamente la sequenza che Mario ha verificato manualmente funzionare
+   sul Mac della mamma ("per risolvere bisogna dare due TAB e poi uno
+   spazio"). Mantiene la stessa diagnostica di v121 (log di
+   activeElement e del contenuto del campo di ricerca prima/dopo SPACE)
+   e lo stesso fallback finale su Return come rete di sicurezza.
 
    NON toccato: ricerca numero, file picker, invio PDF, verifica anteprima,
    composer, invio messaggio, server, LaunchAgent, UI del Generatore.
+
+6c. Cruscotto_Affitti_Server.py — fix bug "Forza invio a" ignorato
+   BUG CONFERMATO dal test di Mario: con "Forza invio a" attivo nel SetUp,
+   l'invio partiva comunque verso il vecchio destinatario (Ahmed) invece
+   che verso il numero di test.
+   CAUSA: l'endpoint POST /api/whatsapp/prepare riceveva recipientName e
+   recipientPhone dall'HTML ma non li scriveva MAI in
+   ElencoRicevute/WhatsApp_Destinatario.json — il file che
+   WhatsApp_Engine.scpt legge per sapere chi contattare. Quel file restava
+   quindi quello dell'ultimo invio reale, e "Forza invio a" non aveva
+   alcun effetto sull'automazione (anche se il messaggio/PDF venivano
+   preparati correttamente).
+   FIX: /api/whatsapp/prepare ora scrive sempre
+   ElencoRicevute/WhatsApp_Destinatario.json con {"name":...,"phone":...}
+   usando esattamente il destinatario scelto dall'HTML (forzato o reale).
+   Verificato con una chiamata di test diretta al server.
 
 7. Invia_Ricevuta_WhatsApp_v96.command / Cruscotto_Affitti_Server.py
    File più recenti ricevuti da Mario per contesto. Il .command v96 usa un
@@ -69,9 +77,11 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v121.command (INSTALLER)
-   Doppio-click sul Mac della Mammetta per installare tutto quanto sopra
-   in un colpo solo. Fa SEMPRE un backup datato (in
+8. Installa_Cruscotto_Affitti_v122.command (INSTALLER — TUTTO-IN-UNO)
+   Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
+   server, runner, plist) sono incorporati dentro il .command stesso —
+   non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
+   per installare tutto in un colpo solo. Fa SEMPRE un backup datato (in
    ~/Library/Application Support/CruscottoAffitti/Backup_Installer/<data>)
    di ogni file che sta per sostituire, PRIMA di sovrascriverlo:
      - WhatsApp_Engine.scpt precedente
@@ -79,29 +89,33 @@ Su macOS si possono compilare in .scpt con:
      - Cruscotto_Affitti_Server.py precedente
      - Generatore_Ricevute_Condominio.html precedente
      - il plist del LaunchAgent precedente
-   Poi installa: WhatsApp_Engine.scpt compilato da v121, Generatore v120,
-   server Python, runner e LaunchAgent; infine ricarica il LaunchAgent e
-   verifica /api/health.
+   Poi installa: WhatsApp_Engine.scpt compilato da v122, Generatore v120
+   (con badge versione motore), server Python (con fix Forza invio a),
+   runner e LaunchAgent; infine ricarica il LaunchAgent e verifica
+   /api/health. Generato dallo script build_installer.py (nella cartella
+   scratchpad della sessione, non nel repo) a partire dai file sorgente:
+   per rigenerarlo dopo un'altra modifica, rilanciare quello script.
    NON tocca MAI: ElencoRicevute/ (Affittuari.json, Ricevute_Dati.json,
    PDF, WhatsApp_Destinatario.json, WhatsApp_Inviati.log, log) né
    ~/Applications/Invia Ricevuta WhatsApp.app (il guscio Helper
    autorizzato in Accessibilità, che deve restare immutato). Si può
    rilanciare più volte senza rischi: ogni run fa un nuovo backup.
-   Se qualcosa manca (cartella ElencoRicevute non trovata, file del
-   pacchetto mancanti) l'installer si ferma con un avviso invece di
-   installare qualcosa di incompleto.
+   Se qualcosa manca (cartella ElencoRicevute non trovata) l'installer si
+   ferma con un avviso invece di installare qualcosa di incompleto.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scompattare TUTTO lo zip in un'unica cartella (tutti i file devono
-   stare insieme all'installer).
-2. Doppio-click su Installa_Cruscotto_Affitti_v121.command
-   (se macOS chiede conferma per "sviluppatore non identificato":
-   tasto destro -> Apri -> Apri).
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v122.command (nessun altro
+   file, nessuno zip: è autosufficiente).
+2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
+   file "sviluppatore non identificato": da Terminale,
+   chmod +x e xattr -d com.apple.quarantine sul file, poi lanciarlo
+   (oppure tasto destro -> Apri -> Apri).
 3. Alla fine comparirà un avviso con l'esito e il percorso del backup.
-4. Fare un invio di test (con "Forza invio a" attivo nel SetUp) e poi
-   leggere:
-   tail -100 /tmp/Invia_Ricevuta_WhatsApp_Helper_v97.log
-   per vedere quale dei tre passi (SPACE primo giro, SPACE secondo giro,
-   fallback Return) ha aperto la chat.
+4. Fare un invio di test (con "Forza invio a" attivo nel SetUp — ora
+   funziona davvero, vedi punto 6c) e poi leggere:
+   tail -150 /tmp/Invia_Ricevuta_WhatsApp_Helper_v97.log
+   Cercare le righe "DIAGNOSTICA" per vedere cosa succede al focus, e la
+   riga finale per sapere se ha aperto la chat con TAB+TAB+SPACE al primo
+   giro, al secondo, o con il fallback Return.
    Log dell'installer stesso, se serve rivedere cosa ha fatto:
    /tmp/Cruscotto_Affitti_Installer.log

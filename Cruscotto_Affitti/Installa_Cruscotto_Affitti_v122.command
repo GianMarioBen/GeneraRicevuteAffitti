@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer Cruscotto Affitti v121 — TUTTO-IN-UNO — per il Mac della Mammetta
+# Installer Cruscotto Affitti v122 — TUTTO-IN-UNO — per il Mac della Mammetta
 # (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
 # da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
 #
 # Cosa fa:
 #   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
 #   2. Estrae dai propri dati incorporati e installa:
-#      - WhatsApp_Engine.scpt (compilato da v121 — fix apertura chat con SPACE)
+#      - WhatsApp_Engine.scpt (compilato da v122 — fix apertura chat con TAB+TAB+SPACE)
 #      - Generatore_Ricevute_Condominio.html (v120, con badge versione motore)
 #      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
 #      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
@@ -53,7 +53,7 @@ fail() {
   exit 1
 }
 
-log "=== Installer Cruscotto Affitti v121 (tutto-in-uno) avviato ==="
+log "=== Installer Cruscotto Affitti v122 (tutto-in-uno) avviato ==="
 
 # --- 0. Controlli di base -----------------------------------------------
 
@@ -75,7 +75,7 @@ log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
 
 # --- 1. Estrae i file incorporati in questo installer ---------------------
 
-cat > "$PAYLOAD_DIR/WhatsApp_Engine_v121.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_v122.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
 property dataDir : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute"
 property pointerPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Ricevuta_Da_Inviare.txt"
 property messagePath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Messaggio_Da_Inviare.txt"
@@ -453,18 +453,17 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 		end repeat
 	end if
 
-	-- Fallback robusto (v121):
-	-- 1. rifocalizza ESPLICITAMENTE il campo Search all chats che contiene
-	--    il numero; 2. Freccia giù per spostare il focus tastiera dentro
-	--    la lista risultati (è questo che produce il bordo verde osservato
-	--    manualmente); 3. verifica che il focus sia REALMENTE uscito dal
-	--    campo di ricerca ed entrato nella riga risultato, prima di premere
-	--    un tasto; 4. attiva con BARRA SPAZIATRICE (key code 49), non Enter:
-	--    Mario ha verificato manualmente che sulla riga con bordo verde è
-	--    SPACE ad aprire la chat, non Return. Se il primo giro non basta si
-	--    ritenta una seconda volta prima di ricadere su Return come rete
-	--    di sicurezza finale, per non perdere la robustezza di v115.
-	my appendLog("Click diretto non confermato: rifocalizzo Search all chats e passo a Freccia giù + SPACE.")
+	-- Fallback robusto (v122):
+	-- La diagnostica di v121 ha confermato sul Mac della Mammetta che dopo
+	-- Freccia giù il cursore/focus tastiera RESTA nel campo Search: per
+	-- questo SPACE non apriva mai la chat (finiva come carattere nel
+	-- campo di ricerca). Mario ha verificato manualmente che il modo che
+	-- sposta davvero il focus fuori dal campo di ricerca è: DUE VOLTE TAB
+	-- (key code 48), poi SPACE (key code 49). Sostituiamo quindi Freccia
+	-- giù con due TAB, mantenendo la stessa verifica del focus reale e la
+	-- stessa diagnostica di v121 prima/dopo SPACE, e lo stesso fallback
+	-- finale su Return come rete di sicurezza.
+	my appendLog("Click diretto non confermato: rifocalizzo Search all chats e passo a doppio TAB + SPACE.")
 	set safePhone to my replaceText("'", "\\'", recipientPhone)
 	set jsCode to "(function(){try{const wanted='" & safePhone & "'.replace(/\\D/g,'');const root=document.querySelector('#side')||document;const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>80&&r.height>20&&s.display!=='none'&&s.visibility!=='hidden'};const els=[...root.querySelectorAll('input,[contenteditable=\"true\"],[role=\"textbox\"]')].filter(vis);const e=els.find(x=>((x.value||x.innerText||x.textContent||'')+'').replace(/\\D/g,'').includes(wanted));if(!e)return 'NO';e.focus();try{e.click()}catch(x){};return 'OK'}catch(x){return 'NO'}})()"
 	try
@@ -474,7 +473,7 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 	end try
 
 	if jsResult is not "OK" then
-		my appendLog("WARN: non ho rifocalizzato il campo ricerca; provo comunque ArrowDown+SPACE.")
+		my appendLog("WARN: non ho rifocalizzato il campo ricerca; provo comunque TAB+TAB+SPACE.")
 	end if
 
 	set resultFocused to false
@@ -482,11 +481,13 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 		tell application "System Events"
 			tell process "Google Chrome"
 				set frontmost to true
-				key code 125
+				key code 48
+				delay 0.15
+				key code 48
 			end tell
 		end tell
 
-		-- v121: NON premiamo subito. Osserviamo se il focus tastiera è
+		-- v122: NON premiamo subito. Osserviamo se il focus tastiera è
 		-- davvero uscito dal campo Search (documento.activeElement non è
 		-- più l'input di ricerca) prima di premere SPACE, così evitiamo
 		-- l'errore di v116 (SPACE troppo presto).
@@ -504,7 +505,7 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 			delay 0.1
 		end repeat
 
-		-- DIAGNOSTICA v121b: prima di premere SPACE, registriamo davvero
+		-- DIAGNOSTICA v122: prima di premere SPACE, registriamo davvero
 		-- COSA ha il focus tastiera e COSA c'è scritto nel campo ricerca.
 		-- Non cambiamo la strategia (Space resta Space): raccogliamo solo
 		-- i dati che servono a capire, al prossimo test reale, se il tasto
@@ -1011,7 +1012,7 @@ end performSend
 on run
 	try
 		do shell script "/usr/bin/touch " & quoted form of runLogPath
-		my appendLog("=== Avvio Engine WhatsApp v121 ===")
+		my appendLog("=== Avvio Engine WhatsApp v122 ===")
 
 		set pdfName to my readTextFile(pointerPath)
 		set messageText to my readTextFile(messagePath)
@@ -5495,18 +5496,18 @@ backup_if_exists "$PLIST_TARGET" "LaunchAgent_Plist"
 # (ElencoRicevute) perché questo installer non lo scrive mai.
 log "NON toccato (come da regola): $DATA_DIR"
 
-# --- 3. Compila ed installa il motore WhatsApp v121 -----------------------
+# --- 3. Compila ed installa il motore WhatsApp v122 -----------------------
 
 command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
 
-TMP_SCPT="/tmp/WhatsApp_Engine_v121_$STAMP.scpt"
-osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v121.applescript" 2>>"$INSTALL_LOG" \
-  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v121.applescript. Dettagli in $INSTALL_LOG"
+TMP_SCPT="/tmp/WhatsApp_Engine_v122_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v122.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v122.applescript. Dettagli in $INSTALL_LOG"
 
 cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
   || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
 rm -f "$TMP_SCPT"
-log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v121)"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v122)"
 
 # Scrive un file di versione che il server legge e mostra nel Generatore
 # HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
@@ -5516,9 +5517,9 @@ ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
 INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
 cat > "$ENGINE_VERSION_FILE" <<EOF
 {
-  "version": "v121",
+  "version": "v122",
   "installedAt": "$INSTALLED_AT_HUMAN",
-  "sourceFile": "WhatsApp_Engine_v121.applescript"
+  "sourceFile": "WhatsApp_Engine_v122.applescript"
 }
 EOF
 log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
@@ -5572,7 +5573,7 @@ if [ -n "$HEALTH" ]; then
   log "Server risponde: $HEALTH"
   MSG="Installazione completata.
 
-Motore WhatsApp: v121 (fix apertura chat con SPACE)
+Motore WhatsApp: v122 (fix apertura chat con TAB+TAB+SPACE)
 Generatore: v120 (con badge versione motore)
 Server: attivo su http://127.0.0.1:8765
 
@@ -5581,7 +5582,7 @@ $BACKUP_DIR
 
 I dati degli affittuari (ElencoRicevute) NON sono stati toccati."
   log "=== Installazione completata con successo ==="
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v121\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v122\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 else
   log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
   MSG="I file sono stati installati e il backup è in:
@@ -5590,7 +5591,7 @@ $BACKUP_DIR
 Ma il server su 127.0.0.1:8765 non ha ancora risposto.
 Prova a riavviare il Mac, oppure controlla il log:
 /tmp/Cruscotto_Affitti_Autostart.log"
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v121\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v122\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 fi
 
 log "Log completo di questa installazione: $INSTALL_LOG"

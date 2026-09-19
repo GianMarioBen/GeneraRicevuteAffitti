@@ -69,14 +69,39 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
+8. Installa_Cruscotto_Affitti_v121.command (INSTALLER)
+   Doppio-click sul Mac della Mammetta per installare tutto quanto sopra
+   in un colpo solo. Fa SEMPRE un backup datato (in
+   ~/Library/Application Support/CruscottoAffitti/Backup_Installer/<data>)
+   di ogni file che sta per sostituire, PRIMA di sovrascriverlo:
+     - WhatsApp_Engine.scpt precedente
+     - Avvia_Cruscotto_Affitti_Server.sh precedente
+     - Cruscotto_Affitti_Server.py precedente
+     - Generatore_Ricevute_Condominio.html precedente
+     - il plist del LaunchAgent precedente
+   Poi installa: WhatsApp_Engine.scpt compilato da v121, Generatore v120,
+   server Python, runner e LaunchAgent; infine ricarica il LaunchAgent e
+   verifica /api/health.
+   NON tocca MAI: ElencoRicevute/ (Affittuari.json, Ricevute_Dati.json,
+   PDF, WhatsApp_Destinatario.json, WhatsApp_Inviati.log, log) né
+   ~/Applications/Invia Ricevuta WhatsApp.app (il guscio Helper
+   autorizzato in Accessibilità, che deve restare immutato). Si può
+   rilanciare più volte senza rischi: ogni run fa un nuovo backup.
+   Se qualcosa manca (cartella ElencoRicevute non trovata, file del
+   pacchetto mancanti) l'installer si ferma con un avviso invece di
+   installare qualcosa di incompleto.
+
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Compilare v121:
-   osacompile -o WhatsApp_Engine.scpt WhatsApp_Engine_v121.applescript
-2. Sostituire SOLO
-   ~/Library/Application Support/CruscottoAffitti/WhatsApp_Engine.scpt
-   con il nuovo file compilato (senza toccare l'app Helper autorizzata in
-   ~/Applications, che resta il guscio immutabile).
-3. Fare un invio di test (con "Forza invio a" attivo) e poi leggere:
+1. Scompattare TUTTO lo zip in un'unica cartella (tutti i file devono
+   stare insieme all'installer).
+2. Doppio-click su Installa_Cruscotto_Affitti_v121.command
+   (se macOS chiede conferma per "sviluppatore non identificato":
+   tasto destro -> Apri -> Apri).
+3. Alla fine comparirà un avviso con l'esito e il percorso del backup.
+4. Fare un invio di test (con "Forza invio a" attivo nel SetUp) e poi
+   leggere:
    tail -100 /tmp/Invia_Ricevuta_WhatsApp_Helper_v97.log
    per vedere quale dei tre passi (SPACE primo giro, SPACE secondo giro,
    fallback Return) ha aperto la chat.
+   Log dell'installer stesso, se serve rivedere cosa ha fatto:
+   /tmp/Cruscotto_Affitti_Installer.log

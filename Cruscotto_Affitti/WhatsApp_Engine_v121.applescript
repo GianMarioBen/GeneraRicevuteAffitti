@@ -426,6 +426,26 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 			delay 0.1
 		end repeat
 
+		-- DIAGNOSTICA v121b: prima di premere SPACE, registriamo davvero
+		-- COSA ha il focus tastiera e COSA c'è scritto nel campo ricerca.
+		-- Non cambiamo la strategia (Space resta Space): raccogliamo solo
+		-- i dati che servono a capire, al prossimo test reale, se il tasto
+		-- sta finendo sulla riga risultato o (come sospettiamo) resta nel
+		-- campo di ricerca perché il focus DOM non si è mai spostato.
+		set jsCode to "(function(){try{const e=document.activeElement;if(!e)return 'NONE';const tag=(e.tagName||'').toLowerCase();const role=e.getAttribute('role')||'';const cls=(e.className||'').toString().slice(0,60);const txt=(e.innerText||e.textContent||e.value||'').trim().slice(0,40);return tag+'|role='+role+'|cls='+cls+'|txt='+txt}catch(x){return 'ERR'}})()"
+		try
+			set activeElementBefore to my runWhatsAppJS(jsCode)
+		on error
+			set activeElementBefore to "ERR"
+		end try
+		set jsCode to "(function(){try{const root=document.querySelector('#side')||document;const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>80&&r.height>20&&s.display!=='none'&&s.visibility!=='hidden'};const els=[...root.querySelectorAll('input,[contenteditable=\"true\"],[role=\"textbox\"]')].filter(vis);if(!els.length)return 'NONE';const e=els[0];return ((e.value||e.innerText||e.textContent||'')+'').slice(0,40)}catch(x){return 'ERR'}})()"
+		try
+			set searchBoxBefore to my runWhatsAppJS(jsCode)
+		on error
+			set searchBoxBefore to "ERR"
+		end try
+		my appendLog("DIAGNOSTICA prima di SPACE: activeElement=[" & activeElementBefore & "] campoRicerca=[" & searchBoxBefore & "] resultFocused=" & resultFocused)
+
 		if resultFocused then
 			my appendLog("Focus tastiera spostato sulla riga risultato: premo SPACE.")
 			tell application "System Events"
@@ -443,6 +463,19 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 					key code 49
 				end tell
 			end tell
+		end if
+
+		delay 0.15
+		set jsCode to "(function(){try{const root=document.querySelector('#side')||document;const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>80&&r.height>20&&s.display!=='none'&&s.visibility!=='hidden'};const els=[...root.querySelectorAll('input,[contenteditable=\"true\"],[role=\"textbox\"]')].filter(vis);if(!els.length)return 'NONE';const e=els[0];return ((e.value||e.innerText||e.textContent||'')+'').slice(0,40)}catch(x){return 'ERR'}})()"
+		try
+			set searchBoxAfter to my runWhatsAppJS(jsCode)
+		on error
+			set searchBoxAfter to "ERR"
+		end try
+		if searchBoxAfter is not searchBoxBefore then
+			my appendLog("DIAGNOSTICA dopo SPACE: il campo di ricerca È CAMBIATO (prima=[" & searchBoxBefore & "] dopo=[" & searchBoxAfter & "]) — SPACE è probabilmente finito nel campo di ricerca invece che sulla riga.")
+		else
+			my appendLog("DIAGNOSTICA dopo SPACE: il campo di ricerca è rimasto invariato (" & searchBoxAfter & ").")
 		end if
 
 		repeat with attempt from 1 to 30

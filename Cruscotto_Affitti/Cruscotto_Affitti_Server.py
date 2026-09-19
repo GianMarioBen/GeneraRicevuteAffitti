@@ -183,6 +183,8 @@ class Handler(BaseHTTPRequestHandler):
                 data = json.loads(raw or "{}")
                 pdf_name = safe_name(str(data.get("pdfName") or ""))
                 message_text = str(data.get("messageText") or "").strip()
+                recipient_name = str(data.get("recipientName") or "").strip()
+                recipient_phone = str(data.get("recipientPhone") or "").strip()
 
                 pdf_path = data_path(pdf_name)
                 if not os.path.isfile(pdf_path):
@@ -196,6 +198,16 @@ class Handler(BaseHTTPRequestHandler):
 
                 with open(os.path.join(DATA_DIR, "Messaggio_Da_Inviare.txt"), "w", encoding="utf-8") as fh:
                     fh.write(message_text)
+
+                # v122: il motore WhatsApp (WhatsApp_Engine.scpt) legge nome e
+                # numero destinatario da WhatsApp_Destinatario.json. Prima
+                # d'ora questo file non veniva mai scritto qui, quindi
+                # restava quello dell'invio precedente: "Forza invio a"
+                # veniva ignorato e l'invio finiva sempre al vecchio
+                # destinatario salvato in questo file.
+                destinatario = {"name": recipient_name, "phone": recipient_phone}
+                with open(os.path.join(DATA_DIR, "WhatsApp_Destinatario.json"), "w", encoding="utf-8") as fh:
+                    json.dump(destinatario, fh, ensure_ascii=False)
 
                 helper_app = os.path.expanduser("~/Applications/Invia Ricevuta WhatsApp.app")
                 if not os.path.isdir(helper_app):

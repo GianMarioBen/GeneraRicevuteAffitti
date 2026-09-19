@@ -504,6 +504,26 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 			delay 0.1
 		end repeat
 
+		-- DIAGNOSTICA v121b: prima di premere SPACE, registriamo davvero
+		-- COSA ha il focus tastiera e COSA c'è scritto nel campo ricerca.
+		-- Non cambiamo la strategia (Space resta Space): raccogliamo solo
+		-- i dati che servono a capire, al prossimo test reale, se il tasto
+		-- sta finendo sulla riga risultato o (come sospettiamo) resta nel
+		-- campo di ricerca perché il focus DOM non si è mai spostato.
+		set jsCode to "(function(){try{const e=document.activeElement;if(!e)return 'NONE';const tag=(e.tagName||'').toLowerCase();const role=e.getAttribute('role')||'';const cls=(e.className||'').toString().slice(0,60);const txt=(e.innerText||e.textContent||e.value||'').trim().slice(0,40);return tag+'|role='+role+'|cls='+cls+'|txt='+txt}catch(x){return 'ERR'}})()"
+		try
+			set activeElementBefore to my runWhatsAppJS(jsCode)
+		on error
+			set activeElementBefore to "ERR"
+		end try
+		set jsCode to "(function(){try{const root=document.querySelector('#side')||document;const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>80&&r.height>20&&s.display!=='none'&&s.visibility!=='hidden'};const els=[...root.querySelectorAll('input,[contenteditable=\"true\"],[role=\"textbox\"]')].filter(vis);if(!els.length)return 'NONE';const e=els[0];return ((e.value||e.innerText||e.textContent||'')+'').slice(0,40)}catch(x){return 'ERR'}})()"
+		try
+			set searchBoxBefore to my runWhatsAppJS(jsCode)
+		on error
+			set searchBoxBefore to "ERR"
+		end try
+		my appendLog("DIAGNOSTICA prima di SPACE: activeElement=[" & activeElementBefore & "] campoRicerca=[" & searchBoxBefore & "] resultFocused=" & resultFocused)
+
 		if resultFocused then
 			my appendLog("Focus tastiera spostato sulla riga risultato: premo SPACE.")
 			tell application "System Events"
@@ -521,6 +541,19 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 					key code 49
 				end tell
 			end tell
+		end if
+
+		delay 0.15
+		set jsCode to "(function(){try{const root=document.querySelector('#side')||document;const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>80&&r.height>20&&s.display!=='none'&&s.visibility!=='hidden'};const els=[...root.querySelectorAll('input,[contenteditable=\"true\"],[role=\"textbox\"]')].filter(vis);if(!els.length)return 'NONE';const e=els[0];return ((e.value||e.innerText||e.textContent||'')+'').slice(0,40)}catch(x){return 'ERR'}})()"
+		try
+			set searchBoxAfter to my runWhatsAppJS(jsCode)
+		on error
+			set searchBoxAfter to "ERR"
+		end try
+		if searchBoxAfter is not searchBoxBefore then
+			my appendLog("DIAGNOSTICA dopo SPACE: il campo di ricerca È CAMBIATO (prima=[" & searchBoxBefore & "] dopo=[" & searchBoxAfter & "]) — SPACE è probabilmente finito nel campo di ricerca invece che sulla riga.")
+		else
+			my appendLog("DIAGNOSTICA dopo SPACE: il campo di ricerca è rimasto invariato (" & searchBoxAfter & ").")
 		end if
 
 		repeat with attempt from 1 to 30
@@ -5222,6 +5255,8 @@ class Handler(BaseHTTPRequestHandler):
                 data = json.loads(raw or "{}")
                 pdf_name = safe_name(str(data.get("pdfName") or ""))
                 message_text = str(data.get("messageText") or "").strip()
+                recipient_name = str(data.get("recipientName") or "").strip()
+                recipient_phone = str(data.get("recipientPhone") or "").strip()
 
                 pdf_path = data_path(pdf_name)
                 if not os.path.isfile(pdf_path):
@@ -5235,6 +5270,16 @@ class Handler(BaseHTTPRequestHandler):
 
                 with open(os.path.join(DATA_DIR, "Messaggio_Da_Inviare.txt"), "w", encoding="utf-8") as fh:
                     fh.write(message_text)
+
+                # v122: il motore WhatsApp (WhatsApp_Engine.scpt) legge nome e
+                # numero destinatario da WhatsApp_Destinatario.json. Prima
+                # d'ora questo file non veniva mai scritto qui, quindi
+                # restava quello dell'invio precedente: "Forza invio a"
+                # veniva ignorato e l'invio finiva sempre al vecchio
+                # destinatario salvato in questo file.
+                destinatario = {"name": recipient_name, "phone": recipient_phone}
+                with open(os.path.join(DATA_DIR, "WhatsApp_Destinatario.json"), "w", encoding="utf-8") as fh:
+                    json.dump(destinatario, fh, ensure_ascii=False)
 
                 helper_app = os.path.expanduser("~/Applications/Invia Ricevuta WhatsApp.app")
                 if not os.path.isdir(helper_app):

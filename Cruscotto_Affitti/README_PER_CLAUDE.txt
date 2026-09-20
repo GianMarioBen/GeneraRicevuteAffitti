@@ -106,6 +106,30 @@ Su macOS si possono compilare in .scpt con:
    l'evoluzione nel tempo: il campo è vuoto all'inizio e si popola
    tardi? "wanted" è la stringa giusta? Ci sono più candidati e stiamo
    guardando quello sbagliato? Nessun cambio di comportamento.
+   RISPOSTA ottenuta dal test reale, DEFINITIVA: il campo con il numero
+   corretto c'è fin dal tentativo 1, il confronto sarebbe positivo
+   ("match=true"), ma il codice lo scartava PRIMA di arrivare al
+   confronto perché il suo getBoundingClientRect risultava troppo
+   piccolo/nascosto secondo il filtro "vis" (soglia width>80,
+   height>20). Log: "tag=input,vis=false,raw=[3338397583],
+   digits=[3338397583],match=true". Probabile spiegazione: WhatsApp usa
+   un <input> reale minuscolo/invisibile per catturare la digitazione,
+   mentre l'elemento visivamente grande che vede l'utente è un layer
+   decorativo separato.
+
+6g. WhatsApp_Engine_v126.applescript (FIX DEFINITIVO, basato sulla
+   diagnostica v125)
+   Stessa base di v105/v115/v121-v125 (nessun'altra parte toccata).
+   Unica modifica: nella verifica del campo di ricerca dentro
+   searchRecipientByPhoneInWhatsApp (sia il controllo di sola lettura
+   sia il fallback di inserimento diretto via JavaScript), rimosso il
+   filtro "vis" (visibilità/dimensione) che scartava il campo giusto: il
+   confronto ora si basa SOLO sul contenuto (le cifre corrispondono?),
+   che è già di per sé una prova sufficiente di aver trovato il campo
+   giusto. Il resto (click sul primo risultato — che invece usa ancora
+   correttamente un filtro di visibilità, perché lì serve davvero per
+   non cliccare righe nascoste —, doppio TAB+SPACE, fallback Return,
+   diagnostica di log) resta identico a v122-v125.
 
 6c. Cruscotto_Affitti_Server.py — fix bug "Forza invio a" ignorato
    BUG CONFERMATO dal test di Mario: con "Forza invio a" attivo nel SetUp,
@@ -133,7 +157,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v125.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v126.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -145,7 +169,7 @@ Su macOS si possono compilare in .scpt con:
      - Cruscotto_Affitti_Server.py precedente
      - Generatore_Ricevute_Condominio.html precedente
      - il plist del LaunchAgent precedente
-   Poi installa: WhatsApp_Engine.scpt compilato da v125 (diagnostica a scaglioni),
+   Poi installa: WhatsApp_Engine.scpt compilato da v126 (fix filtro visibilità),
    Generatore v120
    (con badge versione motore), server Python (con fix Forza invio a),
    runner e LaunchAgent; infine ricarica il LaunchAgent e verifica
@@ -161,7 +185,7 @@ Su macOS si possono compilare in .scpt con:
    ferma con un avviso invece di installare qualcosa di incompleto.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v125.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v126.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

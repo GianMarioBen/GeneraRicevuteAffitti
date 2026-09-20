@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer Cruscotto Affitti v125 — TUTTO-IN-UNO — per il Mac della Mammetta
+# Installer Cruscotto Affitti v126 — TUTTO-IN-UNO — per il Mac della Mammetta
 # (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
 # da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
 #
 # Cosa fa:
 #   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
 #   2. Estrae dai propri dati incorporati e installa:
-#      - WhatsApp_Engine.scpt (compilato da v125 — diagnostica a scaglioni)
+#      - WhatsApp_Engine.scpt (compilato da v126 — fix filtro visibilità campo ricerca)
 #      - Generatore_Ricevute_Condominio.html (v120, con badge versione motore)
 #      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
 #      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
@@ -53,7 +53,7 @@ fail() {
   exit 1
 }
 
-log "=== Installer Cruscotto Affitti v125 (tutto-in-uno) avviato ==="
+log "=== Installer Cruscotto Affitti v126 (tutto-in-uno) avviato ==="
 
 # --- 0. Controlli di base -----------------------------------------------
 
@@ -75,7 +75,7 @@ log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
 
 # --- 1. Estrae i file incorporati in questo installer ---------------------
 
-cat > "$PAYLOAD_DIR/WhatsApp_Engine_v125.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_v126.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
 property dataDir : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute"
 property pointerPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Ricevuta_Da_Inviare.txt"
 property messagePath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Messaggio_Da_Inviare.txt"
@@ -382,33 +382,25 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 	delay 0.7
 
 	-- Verifica che il campo Search all chats contenga proprio il numero.
-	-- v124: rimossa la restrizione a #side (cerca su tutto il documento).
-	-- v125: v124 NON ha risolto — il log è risultato identico a v123, quindi
-	-- l'ipotesi "#side" era sbagliata. Aggiungiamo qui una diagnostica a
-	-- scaglioni (tentativo 1, 10, 20, 30) che fotografa lo stesso identico
-	-- controllo che stiamo eseguendo, per vedere l'evoluzione nel tempo:
-	-- il campo è vuoto all'inizio e si popola tardi? Il valore letto da
-	-- "wanted" è quello giusto? Ci sono più candidati e stiamo guardando
-	-- quello sbagliato? Nessun cambio di comportamento, solo dati reali.
+	-- v126: la diagnostica di v125 ha dato la risposta definitiva. Il
+	-- campo con il numero corretto ESISTE e il confronto sarebbe positivo
+	-- (match=true), ma veniva scartato dal filtro "vis" perché il suo
+	-- getBoundingClientRect risulta troppo piccolo/nascosto (probabilmente
+	-- è un <input> reale minuscolo o invisibile che cattura la digitazione,
+	-- mentre a schermo si vede un elemento decorativo separato). Il
+	-- controllo sul contenuto (le cifre corrispondono?) è già di per sé
+	-- una prova sufficiente: togliamo quindi il filtro di visibilità/
+	-- dimensione da questa verifica, che serviva solo a evitare falsi
+	-- positivi ma qui ci impediva di vedere il campo vero.
 	set typedOK to false
 	repeat with attempt from 1 to 30
 		set safePhone to my replaceText("'", "\\'", recipientPhone)
-		set jsCode to "(function(){try{const wanted='" & safePhone & "'.replace(/\\D/g,'');const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>80&&r.height>20&&s.display!=='none'&&s.visibility!=='hidden'};const els=[...document.querySelectorAll('input,[contenteditable=\"true\"],[role=\"textbox\"]')].filter(vis);for(const e of els){const d=((e.value||e.innerText||e.textContent||'')+'').replace(/\\D/g,'');if(d===wanted||d.includes(wanted)){e.focus();return 'OK'}}return 'NO'}catch(x){return 'NO'}})()"
+		set jsCode to "(function(){try{const wanted='" & safePhone & "'.replace(/\\D/g,'');const els=[...document.querySelectorAll('input,[contenteditable=\"true\"],[role=\"textbox\"]')];for(const e of els){const d=((e.value||e.innerText||e.textContent||'')+'').replace(/\\D/g,'');if(d===wanted||d.includes(wanted)){e.focus();return 'OK'}}return 'NO'}catch(x){return 'NO'}})()"
 		try
 			set jsResult to my runWhatsAppJS(jsCode)
 		on error
 			set jsResult to "NO"
 		end try
-
-		if attempt is 1 or attempt is 10 or attempt is 20 or attempt is 30 then
-			set jsCode to "(function(){try{const wanted='" & safePhone & "'.replace(/\\D/g,'');const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>80&&r.height>20&&s.display!=='none'&&s.visibility!=='hidden'};const els=[...document.querySelectorAll('input,[contenteditable=\"true\"],[role=\"textbox\"]')];const rows=els.map(e=>{const v=vis(e);const raw=((e.value||e.innerText||e.textContent||'')+'');const d=raw.replace(/\\D/g,'');const match=(d===wanted||d.includes(wanted));return 'tag='+(e.tagName||'').toLowerCase()+',vis='+v+',raw=['+raw.slice(0,20)+'],digits=['+d+'],match='+match}).join(' || ');return 'wanted=['+wanted+'] candidati='+els.length+' :: '+rows}catch(x){return 'ERR:'+x}})()"
-			try
-				set attemptSnapshot to my runWhatsAppJS(jsCode)
-			on error
-				set attemptSnapshot to "ERR runWhatsAppJS"
-			end try
-			my appendLog("DIAGNOSTICA typedOK tentativo " & attempt & "/30: " & attemptSnapshot)
-		end if
 
 		if jsResult is "OK" then
 			set typedOK to true
@@ -420,7 +412,7 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 	if not typedOK then
 		my appendLog("Numero non rilevato nel Search all chats: provo inserimento JS diretto.")
 		set safePhone to my replaceText("'", "\\'", recipientPhone)
-		set jsCode to "(function(){try{const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>80&&r.height>20&&s.display!=='none'&&s.visibility!=='hidden'};let e=document.activeElement;if(!e||!vis(e)){e=[...document.querySelectorAll('input,[contenteditable=\"true\"],[role=\"textbox\"]')].filter(vis)[0]}if(!e)return 'NO';e.focus();if(e.isContentEditable){document.execCommand('selectAll',false,null);document.execCommand('insertText',false,'" & safePhone & "');e.dispatchEvent(new Event('input',{bubbles:true}));}else if('value' in e){const p=Object.getPrototypeOf(e);const s=Object.getOwnPropertyDescriptor(p,'value');if(s&&s.set)s.set.call(e,'" & safePhone & "');else e.value='" & safePhone & "';e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}const d=((e.value||e.innerText||e.textContent||'')+'').replace(/\\D/g,'');return d==='" & safePhone & "'?'OK':'NO'}catch(x){return 'NO'}})()"
+		set jsCode to "(function(){try{let e=document.activeElement;if(!e||!(e.tagName==='INPUT'||e.isContentEditable||e.getAttribute('role')==='textbox')){e=[...document.querySelectorAll('input,[contenteditable=\"true\"],[role=\"textbox\"]')][0]}if(!e)return 'NO';e.focus();if(e.isContentEditable){document.execCommand('selectAll',false,null);document.execCommand('insertText',false,'" & safePhone & "');e.dispatchEvent(new Event('input',{bubbles:true}));}else if('value' in e){const p=Object.getPrototypeOf(e);const s=Object.getOwnPropertyDescriptor(p,'value');if(s&&s.set)s.set.call(e,'" & safePhone & "');else e.value='" & safePhone & "';e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}const d=((e.value||e.innerText||e.textContent||'')+'').replace(/\\D/g,'');return d==='" & safePhone & "'?'OK':'NO'}catch(x){return 'NO'}})()"
 		try
 			set jsResult to my runWhatsAppJS(jsCode)
 		on error
@@ -1046,7 +1038,7 @@ end performSend
 on run
 	try
 		do shell script "/usr/bin/touch " & quoted form of runLogPath
-		my appendLog("=== Avvio Engine WhatsApp v125 ===")
+		my appendLog("=== Avvio Engine WhatsApp v126 ===")
 
 		set pdfName to my readTextFile(pointerPath)
 		set messageText to my readTextFile(messagePath)
@@ -5530,18 +5522,18 @@ backup_if_exists "$PLIST_TARGET" "LaunchAgent_Plist"
 # (ElencoRicevute) perché questo installer non lo scrive mai.
 log "NON toccato (come da regola): $DATA_DIR"
 
-# --- 3. Compila ed installa il motore WhatsApp v125 -----------------------
+# --- 3. Compila ed installa il motore WhatsApp v126 -----------------------
 
 command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
 
-TMP_SCPT="/tmp/WhatsApp_Engine_v125_$STAMP.scpt"
-osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v125.applescript" 2>>"$INSTALL_LOG" \
-  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v125.applescript. Dettagli in $INSTALL_LOG"
+TMP_SCPT="/tmp/WhatsApp_Engine_v126_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v126.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v126.applescript. Dettagli in $INSTALL_LOG"
 
 cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
   || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
 rm -f "$TMP_SCPT"
-log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v125)"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v126)"
 
 # Scrive un file di versione che il server legge e mostra nel Generatore
 # HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
@@ -5551,9 +5543,9 @@ ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
 INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
 cat > "$ENGINE_VERSION_FILE" <<EOF
 {
-  "version": "v125",
+  "version": "v126",
   "installedAt": "$INSTALLED_AT_HUMAN",
-  "sourceFile": "WhatsApp_Engine_v125.applescript"
+  "sourceFile": "WhatsApp_Engine_v126.applescript"
 }
 EOF
 log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
@@ -5607,7 +5599,7 @@ if [ -n "$HEALTH" ]; then
   log "Server risponde: $HEALTH"
   MSG="Installazione completata.
 
-Motore WhatsApp: v125 (diagnostica a scaglioni sul campo ricerca, il fix v124 non ha risolto)
+Motore WhatsApp: v126 (fix: rimosso filtro visibilità che scartava il vero campo ricerca)
 Generatore: v120 (con badge versione motore)
 Server: attivo su http://127.0.0.1:8765
 
@@ -5616,7 +5608,7 @@ $BACKUP_DIR
 
 I dati degli affittuari (ElencoRicevute) NON sono stati toccati."
   log "=== Installazione completata con successo ==="
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v125\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v126\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 else
   log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
   MSG="I file sono stati installati e il backup è in:
@@ -5625,7 +5617,7 @@ $BACKUP_DIR
 Ma il server su 127.0.0.1:8765 non ha ancora risposto.
 Prova a riavviare il Mac, oppure controlla il log:
 /tmp/Cruscotto_Affitti_Autostart.log"
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v125\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v126\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 fi
 
 log "Log completo di questa installazione: $INSTALL_LOG"

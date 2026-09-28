@@ -257,6 +257,62 @@ Su macOS si possono compilare in .scpt con:
    Se qualcosa manca (cartella ElencoRicevute non trovata) l'installer si
    ferma con un avviso invece di installare qualcosa di incompleto.
 
+6k. Cruscotto_Affitti_Launcher.applescript + CruscottoAffitti.icns —
+   launcher "Cruscotto Affitti.app" (finestra-app Chrome dedicata)
+   Richiesta di Mario: la Mammetta fatica a gestire più schede Chrome
+   aperte insieme (Generatore + WhatsApp), quindi serve un modo per
+   aprire il Generatore fuori dalle schede normali. Mario aveva già un
+   precedente tentativo funzionante fatto da "Camilla Ciatti" (ChatGPT):
+   un piccolo applet AppleScript compilato (Cruscotto Affitti.app) che
+   apre SOLO il Generatore come finestra-app Chrome dedicata (flag
+   --app=, niente tab/barra indirizzi/segnalibri), lasciando WhatsApp
+   Web come scheda di una normale finestra Chrome, esattamente come
+   oggi. Analizzato il .app ricevuto (decompilato solo a livello di
+   stringhe, .scpt binario non leggibile riga per riga): usa
+   `nohup '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+   --app='http://127.0.0.1:8765/Generatore_Ricevute_Condominio.html'
+   --window-size=1500,900 --no-first-run --disable-session-crashed-bubble`.
+   Ricostruito da zero come sorgente AppleScript leggibile e
+   versionabile (non solo eseguibile compilato):
+   Cruscotto_Affitti_Launcher.applescript. Stessa tecnica, stesso URL,
+   stesse opzioni Chrome, con l'aggiunta di un controllo che avvia da
+   solo il server locale (stesso runner del LaunchAgent) se non risulta
+   già attivo prima di aprire la finestra.
+   PERCHÉ NON DOVREBBE ROMPERE L'AUTOMAZIONE WHATSAPP: il vecchio
+   testimone del progetto segnalava problemi di focus quando era
+   WHATSAPP STESSO ad essere aperto in modalità --app. Qui invece è
+   SOLO il Generatore ad usare --app; WhatsApp resta sempre una scheda
+   di una normale finestra Chrome. WhatsApp_Engine.scpt individua la
+   scheda giusta cercando l'URL "web.whatsapp.com" fra TUTTE le finestre
+   di Google Chrome (non per indice/posizione), e rifocalizza
+   esplicitamente quella finestra prima di ogni invio di tasti — quindi
+   un'altra finestra Chrome aperta in parallelo (quella del Generatore)
+   non dovrebbe interferire. VA COMUNQUE VERIFICATO CON UN TEST REALE
+   del flusso di invio WhatsApp con la finestra-app del Generatore
+   aperta, prima di fidarsi al 100%.
+   Icona: CruscottoAffitti.icns, la stessa che Mario ha estratto dal
+   tentativo precedente di Camilla Ciatti (il disegno della casetta).
+   L'installer (vedi sotto) la installa e la imposta come icona del
+   launcher via PlistBuddy.
+   NON tocca l'automazione WhatsApp, il motore, il server, né l'app
+   Helper WhatsApp.
+
+8b. Installer, aggiornamento: ora compila e installa anche il launcher
+   Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
+   backup dell'eventuale "~/Applications/Cruscotto Affitti.app"
+   preesistente (cp -R, poi rimosso e ricreato da zero), compilazione di
+   Cruscotto_Affitti_Launcher.applescript con osacompile direttamente in
+   "~/Applications/Cruscotto Affitti.app", copia dell'icona
+   CruscottoAffitti.icns dentro Contents/Resources/, e impostazione di
+   CFBundleIconFile/CFBundleDisplayName/CFBundleName via PlistBuddy (con
+   fallback "Add" se le chiavi non esistessero già, e un avviso nel log
+   se PlistBuddy non fosse disponibile, senza bloccare l'installazione).
+   L'icona incorporata nell'installer è codificata in base64 (unico modo
+   sicuro per portare un file binario dentro uno script di testo) e
+   decodificata con "base64 -D" (sintassi macOS/BSD, con fallback
+   "base64 -d" in caso di ambiente non-macOS). Verificato che l'icona
+   decodificata dall'installer sia byte-per-byte identica all'originale.
+
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
 1. Scaricare SOLO Installa_Cruscotto_Affitti_v129.command (nessun altro
    file, nessuno zip: è autosufficiente).
@@ -273,3 +329,9 @@ PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
    giro, al secondo, o con il fallback Return.
    Log dell'installer stesso, se serve rivedere cosa ha fatto:
    /tmp/Cruscotto_Affitti_Installer.log
+5. Provare il nuovo launcher: aprire "Cruscotto Affitti" da
+   ~/Applications (o dal Launchpad/Spotlight) e verificare che si apra
+   la finestra-app del Generatore. IMPORTANTE: rifare anche un invio
+   WhatsApp di test con questa finestra-app aperta in parallelo, per
+   verificare che l'automazione WhatsApp continui a funzionare come
+   prima (vedi nota sul rischio nel punto 6k del pacchetto).

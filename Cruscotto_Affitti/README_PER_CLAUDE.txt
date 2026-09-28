@@ -230,7 +230,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v130.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v131.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -318,6 +318,22 @@ Su macOS si possono compilare in .scpt con:
    che di FAIL, e anche nel ramo "on error" del gestore run per
    sicurezza. Nessun'altra parte del flusso toccata.
 
+6m. WhatsApp_Engine_v131.applescript — selettore file verificato + click reale
+   Test reale v130 (con launcher): chat aperta correttamente, ma dopo il
+   click JavaScript su "Documento" il menu Allega resta aperto e il
+   selettore file macOS NON compare (il log "Voce Documento selezionata"
+   era un falso positivo). Il motore mandava comunque Cmd+Shift+G + Cmd+V:
+   senza selettore aperto, in Chrome Cmd+Shift+G apre la barra "Trova" e
+   il percorso del PDF finiva lì dentro (screenshot di Mario).
+   Fix: dopo il click JS su Documento, waitForFilePicker() verifica che il
+   selettore sia davvero aperto (sheet sulla finestra Chrome o finestra in
+   più). Se non lo è, documentoScreenPoint() calcola via JS le coordinate
+   di schermo della voce Documento e System Events fa un click REALE di
+   sistema lì (WhatsApp potrebbe accettare solo click "veri" per aprire il
+   selettore file). Se il selettore ancora non compare: Esc, avviso
+   "Selettore file non aperto", FAIL:PICKER — mai più tasti mandati alla
+   cieca nella barra Trova. Resto del flusso invariato.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"
@@ -335,7 +351,7 @@ Su macOS si possono compilare in .scpt con:
    decodificata dall'installer sia byte-per-byte identica all'originale.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v130.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v131.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

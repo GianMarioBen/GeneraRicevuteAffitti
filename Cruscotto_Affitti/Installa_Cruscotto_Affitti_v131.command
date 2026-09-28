@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer Cruscotto Affitti v130 — TUTTO-IN-UNO — per il Mac della Mammetta
+# Installer Cruscotto Affitti v131 — TUTTO-IN-UNO — per il Mac della Mammetta
 # (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
 # da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
 #
 # Cosa fa:
 #   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
 #   2. Estrae dai propri dati incorporati e installa:
-#      - WhatsApp_Engine.scpt (compilato da v130 — evita interferenze col launcher)
+#      - WhatsApp_Engine.scpt (compilato da v131 — verifica selettore file + click reale su Documento)
 #      - Generatore_Ricevute_Condominio.html (v120, con badge versione motore)
 #      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
 #      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
@@ -57,7 +57,7 @@ fail() {
   exit 1
 }
 
-log "=== Installer Cruscotto Affitti v130 (tutto-in-uno) avviato ==="
+log "=== Installer Cruscotto Affitti v131 (tutto-in-uno) avviato ==="
 
 # --- 0. Controlli di base -----------------------------------------------
 
@@ -79,7 +79,7 @@ log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
 
 # --- 1. Estrae i file incorporati in questo installer ---------------------
 
-cat > "$PAYLOAD_DIR/WhatsApp_Engine_v130.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_v131.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
 property dataDir : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute"
 property pointerPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Ricevuta_Da_Inviare.txt"
 property messagePath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Messaggio_Da_Inviare.txt"
@@ -761,6 +761,40 @@ on recordSuccess(pdfName)
 	end try
 end recordSuccess
 
+on waitForFilePicker(initialWindowCount, maxTries)
+	-- Il selettore file di Chrome su macOS compare come "sheet" attaccato
+	-- alla finestra, oppure come finestra in più: basta uno dei due.
+	repeat with attempt from 1 to maxTries
+		set found to false
+		tell application "System Events"
+			tell process "Google Chrome"
+				try
+					if exists sheet 1 of front window then set found to true
+				end try
+				if not found then
+					try
+						if (count of windows) > initialWindowCount then set found to true
+					end try
+				end if
+			end tell
+		end tell
+		if found then return true
+		delay 0.15
+	end repeat
+	return false
+end waitForFilePicker
+
+on documentoScreenPoint()
+	-- Coordinate di schermo (punti) del centro della voce "Documento" nel
+	-- menu Allega, per un click reale di sistema (non JavaScript).
+	set jsCode to "(function(){try{const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>7&&r.height>7&&s.display!=='none'&&s.visibility!=='hidden'};const els=[...document.querySelectorAll('[role=\"menuitem\"],[role=\"button\"],button,li,[tabindex]')].filter(vis);const txt=e=>((e.innerText||e.textContent||e.getAttribute('aria-label')||'')+'').trim().toLowerCase();let el=els.find(e=>txt(e)==='documento'||txt(e)==='document');if(!el)el=els.find(e=>txt(e).startsWith('documento'));if(!el)return '';const r=el.getBoundingClientRect();const x=Math.round(window.screenX+r.left+r.width/2);const y=Math.round(window.screenY+(window.outerHeight-window.innerHeight)+r.top+r.height/2);return x+','+y}catch(e){return ''}})()"
+	try
+		return my runWhatsAppJS(jsCode)
+	on error
+		return ""
+	end try
+end documentoScreenPoint
+
 on performSend(pdfPath, messageText, recipientName, recipientPhone)
 	my openWhatsAppOnlyIfMissing()
 	if not my waitForWhatsAppReady() then return "FAIL:READY"
@@ -840,7 +874,47 @@ on performSend(pdfPath, messageText, recipientName, recipientPhone)
 		display alert "Documento non trovato" message "Il menu Allega si è aperto, ma non trovo la voce Documento."
 		return "FAIL:DOCUMENT"
 	end if
-	my appendLog("Voce Documento selezionata.")
+	my appendLog("Voce Documento cliccata (click JavaScript).")
+
+	-- v131: il click JavaScript su "Documento" può non aprire più il
+	-- selettore file (il menu Allega resta aperto). Prima di mandare
+	-- Cmd+Shift+G verifichiamo che il selettore macOS sia DAVVERO aperto:
+	-- altrimenti Cmd+Shift+G in Chrome apre la barra "Trova" e il percorso
+	-- del PDF finisce lì dentro (osservato da Mario).
+	set pickerOpen to my waitForFilePicker(initialWindowCount, 14)
+
+	if not pickerOpen then
+		my appendLog("Selettore file non aperto dal click JavaScript: provo un click reale di sistema su Documento.")
+		set pt to my documentoScreenPoint()
+		if pt contains "," then
+			set AppleScript's text item delimiters to ","
+			set clickX to (text item 1 of pt) as integer
+			set clickY to (text item 2 of pt) as integer
+			set AppleScript's text item delimiters to ""
+			my appendLog("Click reale su Documento alle coordinate " & clickX & "," & clickY)
+			tell application "System Events"
+				tell process "Google Chrome"
+					set frontmost to true
+					click at {clickX, clickY}
+				end tell
+			end tell
+			set pickerOpen to my waitForFilePicker(initialWindowCount, 20)
+		else
+			my appendLog("Voce Documento non più visibile per il click reale.")
+		end if
+	end if
+
+	if not pickerOpen then
+		my appendLog("FAIL: il selettore file macOS non si è aperto. NON mando Cmd+Shift+G (finirebbe nella barra Trova).")
+		tell application "System Events"
+			tell process "Google Chrome"
+				key code 53
+			end tell
+		end tell
+		display alert "Selettore file non aperto" message "Ho cliccato su Documento, ma la finestra per scegliere il PDF non è comparsa. Mi fermo senza scrivere nulla altrove."
+		return "FAIL:PICKER"
+	end if
+	my appendLog("Selettore file macOS aperto: procedo con la scelta del PDF.")
 
 	-- v105: selezione PDF + verifica REALE dell'anteprima.
 	-- Non dichiariamo più "PDF inviato" solo perché troviamo un generico
@@ -848,8 +922,7 @@ on performSend(pdfPath, messageText, recipientName, recipientPhone)
 	set pdfNameOnly to do shell script "/usr/bin/basename " & quoted form of pdfPath
 	set safePdfName to my replaceText("'", "\\'", pdfNameOnly)
 
-	my appendLog("Attendo il selettore file senza rifocalizzare WhatsApp.")
-	delay 1.0
+	delay 0.4
 
 	set the clipboard to pdfPath
 	tell application "System Events"
@@ -1139,7 +1212,7 @@ on run
 	set minimizedWindowIDs to {}
 	try
 		do shell script "/usr/bin/touch " & quoted form of runLogPath
-		my appendLog("=== Avvio Engine WhatsApp v130 ===")
+		my appendLog("=== Avvio Engine WhatsApp v131 ===")
 
 		set pdfName to my readTextFile(pointerPath)
 		set messageText to my readTextFile(messagePath)
@@ -24218,18 +24291,18 @@ backup_dir_if_exists "$LAUNCHER_APP_TARGET" "Launcher_App"
 # (ElencoRicevute) perché questo installer non lo scrive mai.
 log "NON toccato (come da regola): $DATA_DIR"
 
-# --- 3. Compila ed installa il motore WhatsApp v130 -----------------------
+# --- 3. Compila ed installa il motore WhatsApp v131 -----------------------
 
 command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
 
-TMP_SCPT="/tmp/WhatsApp_Engine_v130_$STAMP.scpt"
-osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v130.applescript" 2>>"$INSTALL_LOG" \
-  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v130.applescript. Dettagli in $INSTALL_LOG"
+TMP_SCPT="/tmp/WhatsApp_Engine_v131_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v131.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v131.applescript. Dettagli in $INSTALL_LOG"
 
 cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
   || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
 rm -f "$TMP_SCPT"
-log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v130)"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v131)"
 
 # Scrive un file di versione che il server legge e mostra nel Generatore
 # HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
@@ -24239,9 +24312,9 @@ ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
 INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
 cat > "$ENGINE_VERSION_FILE" <<EOF
 {
-  "version": "v130",
+  "version": "v131",
   "installedAt": "$INSTALLED_AT_HUMAN",
-  "sourceFile": "WhatsApp_Engine_v130.applescript"
+  "sourceFile": "WhatsApp_Engine_v131.applescript"
 }
 EOF
 log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
@@ -24336,7 +24409,7 @@ if [ -n "$HEALTH" ]; then
   log "Server risponde: $HEALTH"
   MSG="Installazione completata.
 
-Motore WhatsApp: v130 (minimizza le altre finestre Chrome durante l'invio)
+Motore WhatsApp: v131 (verifica il selettore file + click reale su Documento)
 Generatore: v120 (con badge versione motore)
 Server: attivo su http://127.0.0.1:8765
 Launcher: Cruscotto Affitti.app in ~/Applications
@@ -24348,7 +24421,7 @@ I dati degli affittuari (ElencoRicevute) NON sono stati toccati.
 WhatsApp continua a funzionare come scheda Chrome normale: provalo con
 calma prima di fidartene al 100%."
   log "=== Installazione completata con successo ==="
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v130\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v131\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 else
   log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
   MSG="I file sono stati installati e il backup è in:
@@ -24357,7 +24430,7 @@ $BACKUP_DIR
 Ma il server su 127.0.0.1:8765 non ha ancora risposto.
 Prova a riavviare il Mac, oppure controlla il log:
 /tmp/Cruscotto_Affitti_Autostart.log"
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v130\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v131\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 fi
 
 log "Log completo di questa installazione: $INSTALL_LOG"

@@ -163,6 +163,18 @@ Su macOS si possono compilare in .scpt con:
    TAB+SPACE, fallback Return finale) come rete di sicurezza — nessuna
    parte precedente è stata rimossa, solo anteposto questo tentativo più
    diretto.
+   ESITO DEL TEST REALE: FUNZIONA, flusso completo end-to-end. Log:
+     "Numero presente nel Search all chats: 3338397583"
+     "Chat aperta con INVIO diretto dopo il numero (nessun click/TAB necessario)."
+     "Pulsante Allega aperto." → "Voce Documento selezionata." →
+     "Anteprima PDF verificata" → "PDF REALMENTE inviato e verificato
+     nella chat" → "Messaggio incollato correttamente nel composer." →
+     "Risultato: SUCCESS" → "SUCCESS: PDF e messaggio inviati."
+   v128 è quindi la versione da considerare STABILE e definitiva per
+   l'invio automatico WhatsApp su questo Mac, alla data del 28/09/2026.
+   Se WhatsApp Web dovesse cambiare ancora in futuro, ripartire da qui
+   con lo stesso metodo: mai un'altra versione alla cieca, sempre prima
+   la diagnostica sul log reale, poi il fix mirato.
 
 6c. Cruscotto_Affitti_Server.py — fix bug "Forza invio a" ignorato
    BUG CONFERMATO dal test di Mario: con "Forza invio a" attivo nel SetUp,

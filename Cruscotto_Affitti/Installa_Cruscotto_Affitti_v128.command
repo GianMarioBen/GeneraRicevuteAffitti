@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer Cruscotto Affitti v127 — TUTTO-IN-UNO — per il Mac della Mammetta
+# Installer Cruscotto Affitti v128 — TUTTO-IN-UNO — per il Mac della Mammetta
 # (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
 # da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
 #
 # Cosa fa:
 #   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
 #   2. Estrae dai propri dati incorporati e installa:
-#      - WhatsApp_Engine.scpt (compilato da v127 — fix errore recipientName non definita)
+#      - WhatsApp_Engine.scpt (compilato da v128 — INVIO diretto dopo numero)
 #      - Generatore_Ricevute_Condominio.html (v120, con badge versione motore)
 #      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
 #      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
@@ -53,7 +53,7 @@ fail() {
   exit 1
 }
 
-log "=== Installer Cruscotto Affitti v127 (tutto-in-uno) avviato ==="
+log "=== Installer Cruscotto Affitti v128 (tutto-in-uno) avviato ==="
 
 # --- 0. Controlli di base -----------------------------------------------
 
@@ -75,7 +75,7 @@ log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
 
 # --- 1. Estrae i file incorporati in questo installer ---------------------
 
-cat > "$PAYLOAD_DIR/WhatsApp_Engine_v127.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_v128.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
 property dataDir : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute"
 property pointerPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Ricevuta_Da_Inviare.txt"
 property messagePath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Messaggio_Da_Inviare.txt"
@@ -441,6 +441,42 @@ on searchRecipientByPhoneInWhatsApp(recipientPhone)
 
 	my appendLog("Numero presente nel Search all chats: " & recipientPhone)
 	delay 0.9
+
+	-- v128: WhatsApp Web è di nuovo cambiato (Mario: con due TAB ora ci si
+	-- ferma sul pulsante "Tutte", il filtro sopra la lista chat). Mario ha
+	-- verificato manualmente che, con il numero scritto nel campo ricerca,
+	-- basta premere INVIO per selezionare direttamente la chat. Proviamolo
+	-- come primo tentativo, il più semplice e diretto: se funziona, evitiamo
+	-- del tutto il click simulato e i TAB, che restano comunque come rete
+	-- di sicurezza subito sotto se questo primo tentativo non bastasse.
+	tell application "System Events"
+		tell process "Google Chrome"
+			set frontmost to true
+			key code 36
+		end tell
+	end tell
+
+	set returnDirectWorked to false
+	repeat with attempt from 1 to 30
+		set jsCode to "(function(){try{const root=document.querySelector('#main');if(!root)return 'WAIT';const h=root.querySelector('header');const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>20&&r.height>15&&s.display!=='none'&&s.visibility!=='hidden'};const composer=[...root.querySelectorAll('footer textarea,footer [contenteditable=\"true\"],footer [role=\"textbox\"]')].find(vis);return (h&&composer)?'READY':'WAIT'}catch(e){return 'WAIT'}})()"
+		try
+			set jsResult to my runWhatsAppJS(jsCode)
+		on error
+			set jsResult to "WAIT"
+		end try
+		if jsResult is "READY" then
+			set returnDirectWorked to true
+			exit repeat
+		end if
+		delay 0.15
+	end repeat
+
+	if returnDirectWorked then
+		my appendLog("Chat aperta con INVIO diretto dopo il numero (nessun click/TAB necessario).")
+		return true
+	end if
+
+	my appendLog("INVIO diretto non ha aperto la chat: provo con click sulla riga + TAB+TAB+SPACE come rete di sicurezza.")
 
 	-- v115: NON cerchiamo più il numero dentro la riga risultato.
 	-- WhatsApp, se il contatto è salvato, mostra il NOME (es. "Ahmed N. 6").
@@ -1043,7 +1079,7 @@ end performSend
 on run
 	try
 		do shell script "/usr/bin/touch " & quoted form of runLogPath
-		my appendLog("=== Avvio Engine WhatsApp v127 ===")
+		my appendLog("=== Avvio Engine WhatsApp v128 ===")
 
 		set pdfName to my readTextFile(pointerPath)
 		set messageText to my readTextFile(messagePath)
@@ -5527,18 +5563,18 @@ backup_if_exists "$PLIST_TARGET" "LaunchAgent_Plist"
 # (ElencoRicevute) perché questo installer non lo scrive mai.
 log "NON toccato (come da regola): $DATA_DIR"
 
-# --- 3. Compila ed installa il motore WhatsApp v127 -----------------------
+# --- 3. Compila ed installa il motore WhatsApp v128 -----------------------
 
 command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
 
-TMP_SCPT="/tmp/WhatsApp_Engine_v127_$STAMP.scpt"
-osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v127.applescript" 2>>"$INSTALL_LOG" \
-  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v127.applescript. Dettagli in $INSTALL_LOG"
+TMP_SCPT="/tmp/WhatsApp_Engine_v128_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v128.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v128.applescript. Dettagli in $INSTALL_LOG"
 
 cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
   || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
 rm -f "$TMP_SCPT"
-log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v127)"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v128)"
 
 # Scrive un file di versione che il server legge e mostra nel Generatore
 # HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
@@ -5548,9 +5584,9 @@ ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
 INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
 cat > "$ENGINE_VERSION_FILE" <<EOF
 {
-  "version": "v127",
+  "version": "v128",
   "installedAt": "$INSTALLED_AT_HUMAN",
-  "sourceFile": "WhatsApp_Engine_v127.applescript"
+  "sourceFile": "WhatsApp_Engine_v128.applescript"
 }
 EOF
 log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
@@ -5604,7 +5640,7 @@ if [ -n "$HEALTH" ]; then
   log "Server risponde: $HEALTH"
   MSG="Installazione completata.
 
-Motore WhatsApp: v127 (fix: errore -2753 variabile recipientName non definita dopo SPACE)
+Motore WhatsApp: v128 (nuovo: prova INVIO diretto dopo il numero, prima dei TAB)
 Generatore: v120 (con badge versione motore)
 Server: attivo su http://127.0.0.1:8765
 
@@ -5613,7 +5649,7 @@ $BACKUP_DIR
 
 I dati degli affittuari (ElencoRicevute) NON sono stati toccati."
   log "=== Installazione completata con successo ==="
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v127\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v128\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 else
   log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
   MSG="I file sono stati installati e il backup è in:
@@ -5622,7 +5658,7 @@ $BACKUP_DIR
 Ma il server su 127.0.0.1:8765 non ha ancora risposto.
 Prova a riavviare il Mac, oppure controlla il log:
 /tmp/Cruscotto_Affitti_Autostart.log"
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v127\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v128\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 fi
 
 log "Log completo di questa installazione: $INSTALL_LOG"

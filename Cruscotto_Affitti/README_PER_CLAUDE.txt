@@ -147,6 +147,23 @@ Su macOS si possono compilare in .scpt con:
    è aperta, in modo generico e senza bisogno del nome.
    NON toccato nient'altro.
 
+6i. WhatsApp_Engine_v128.applescript (nuovo tentativo più semplice: INVIO
+   diretto)
+   WhatsApp Web è di nuovo cambiato: Mario riporta che con due TAB ora ci
+   si ferma sul pulsante "Tutte" (il filtro sopra la lista chat), quindi
+   il percorso TAB+TAB+SPACE di v122-v127 non è più affidabile su questa
+   versione. Mario ha però verificato manualmente un metodo più semplice:
+   con il numero scritto nel campo di ricerca, basta premere INVIO per
+   selezionare direttamente la chat.
+   v128 prova questo per primo, subito dopo aver confermato che il
+   numero è presente nel campo (key code 36 = Return), e verifica se la
+   chat si apre (header+composer in #main). Se funziona, la funzione
+   ritorna subito senza toccare click simulati o TAB. Se NON funziona,
+   ricade nella logica precedente invariata (click sulla riga, doppio
+   TAB+SPACE, fallback Return finale) come rete di sicurezza — nessuna
+   parte precedente è stata rimossa, solo anteposto questo tentativo più
+   diretto.
+
 6c. Cruscotto_Affitti_Server.py — fix bug "Forza invio a" ignorato
    BUG CONFERMATO dal test di Mario: con "Forza invio a" attivo nel SetUp,
    l'invio partiva comunque verso il vecchio destinatario (Ahmed) invece
@@ -173,7 +190,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v127.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v128.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -185,7 +202,7 @@ Su macOS si possono compilare in .scpt con:
      - Cruscotto_Affitti_Server.py precedente
      - Generatore_Ricevute_Condominio.html precedente
      - il plist del LaunchAgent precedente
-   Poi installa: WhatsApp_Engine.scpt compilato da v127 (fix errore recipientName),
+   Poi installa: WhatsApp_Engine.scpt compilato da v128 (INVIO diretto),
    Generatore v120
    (con badge versione motore), server Python (con fix Forza invio a),
    runner e LaunchAgent; infine ricarica il LaunchAgent e verifica
@@ -201,7 +218,7 @@ Su macOS si possono compilare in .scpt con:
    ferma con un avviso invece di installare qualcosa di incompleto.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v127.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v128.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

@@ -230,7 +230,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v129.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v130.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -296,6 +296,27 @@ Su macOS si possono compilare in .scpt con:
    launcher via PlistBuddy.
    NON tocca l'automazione WhatsApp, il motore, il server, né l'app
    Helper WhatsApp.
+   ESITO DEL TEST REALE: l'interferenza temuta si è verificata davvero.
+   Mario ha osservato direttamente i tasti destinati a WhatsApp finire
+   sulla finestra del launcher (un Cmd+A visibile lì, "si evidenzia
+   tutto"), con conseguenti FAIL:CHAT / FAIL:PDFSEND intermittenti nei
+   test con la finestra-app del Generatore aperta in parallelo — non
+   sempre, il che è coerente con una corsa critica (race condition) tra
+   l'attivazione della finestra giusta e l'invio del tasto, aggravata
+   dal carico extra di una seconda finestra Chrome su questo Mac datato.
+
+6l. WhatsApp_Engine_v130.applescript — fix interferenza col launcher
+   Aggiunte due funzioni nuove, minimizeOtherChromeWindows() e
+   restoreChromeWindows(), usate solo nel gestore "run": prima di
+   chiamare performSend, minimizza ogni finestra di Google Chrome la cui
+   URL non contenga "web.whatsapp.com" (quindi tipicamente la finestra-
+   app del launcher), così durante tutta l'automazione non esiste
+   nessun'altra finestra Chrome visibile che possa rubare il focus dei
+   tasti. Le finestre minimizzate vengono ripristinate (tramite l'id
+   della finestra, non l'indice, per essere robusti anche se l'ordine
+   cambia) subito dopo che performSend ritorna, sia in caso di SUCCESS
+   che di FAIL, e anche nel ramo "on error" del gestore run per
+   sicurezza. Nessun'altra parte del flusso toccata.
 
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
@@ -314,7 +335,7 @@ Su macOS si possono compilare in .scpt con:
    decodificata dall'installer sia byte-per-byte identica all'originale.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v129.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v130.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

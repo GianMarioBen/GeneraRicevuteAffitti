@@ -176,6 +176,34 @@ Su macOS si possono compilare in .scpt con:
    con lo stesso metodo: mai un'altra versione alla cieca, sempre prima
    la diagnostica sul log reale, poi il fix mirato.
 
+6j. WhatsApp_Engine_v129.applescript + Generatore HTML + Server —
+   non aggiornare "Inviata" sugli invii di test
+   Richiesta di Mario: quando "Forza invio a" è attivo (il numero è
+   quello di test, non quello vero dell'affittuario), l'invio non deve
+   far scattare il flag "✓ Inviata" sulla ricevuta, perché è
+   evidentemente solo una prova.
+   Il flag viene letto dall'HTML da WhatsApp_Inviati.log, che però è
+   scritto dal motore AppleScript stesso (recordSuccess) ad ogni SUCCESS
+   — quindi bastava nascondere il flag lato HTML solo temporaneamente:
+   al ricaricamento della pagina, rileggendo il log, sarebbe ricomparso
+   comunque. Fix end-to-end, alla radice:
+   1. Generatore HTML (prepareWhatsAppSend): il body della POST verso
+      /api/whatsapp/prepare include ora "isTest": true quando
+      recipient.forced è true (cioè "Forza invio a" attivo); inoltre
+      non avvia più watchWhatsAppSendStatus per gli invii di test (non
+      c'è nulla da attendere).
+   2. Cruscotto_Affitti_Server.py (/api/whatsapp/prepare): legge
+      "isTest" dal body e lo scrive dentro
+      ElencoRicevute/WhatsApp_Destinatario.json insieme a name/phone.
+   3. WhatsApp_Engine_v129.applescript: nuova funzione isTestSend() che
+      legge "isTest":true da WhatsApp_Destinatario.json (grep); nel
+      gestore "run", se SUCCESS e isTestSend() è true, NON chiama più
+      recordSuccess (quindi WhatsApp_Inviati.log non viene toccato) e
+      logga chiaramente che si è trattato di un invio di test.
+   Verificato con una chiamata di test diretta al server (isTest:true
+   → scritto correttamente nel JSON; isTest assente → scritto false).
+   NON toccato nient'altro (ricerca, click, PDF, composer, messaggio).
+
 6c. Cruscotto_Affitti_Server.py — fix bug "Forza invio a" ignorato
    BUG CONFERMATO dal test di Mario: con "Forza invio a" attivo nel SetUp,
    l'invio partiva comunque verso il vecchio destinatario (Ahmed) invece
@@ -202,7 +230,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v128.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v129.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -214,7 +242,7 @@ Su macOS si possono compilare in .scpt con:
      - Cruscotto_Affitti_Server.py precedente
      - Generatore_Ricevute_Condominio.html precedente
      - il plist del LaunchAgent precedente
-   Poi installa: WhatsApp_Engine.scpt compilato da v128 (INVIO diretto),
+   Poi installa: WhatsApp_Engine.scpt compilato da v129 (niente flag Inviata sui test),
    Generatore v120
    (con badge versione motore), server Python (con fix Forza invio a),
    runner e LaunchAgent; infine ricarica il LaunchAgent e verifica
@@ -230,7 +258,7 @@ Su macOS si possono compilare in .scpt con:
    ferma con un avviso invece di installare qualcosa di incompleto.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v128.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v129.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

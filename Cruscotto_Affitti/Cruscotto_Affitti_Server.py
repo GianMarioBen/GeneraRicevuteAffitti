@@ -185,6 +185,7 @@ class Handler(BaseHTTPRequestHandler):
                 message_text = str(data.get("messageText") or "").strip()
                 recipient_name = str(data.get("recipientName") or "").strip()
                 recipient_phone = str(data.get("recipientPhone") or "").strip()
+                is_test = bool(data.get("isTest"))
 
                 pdf_path = data_path(pdf_name)
                 if not os.path.isfile(pdf_path):
@@ -205,7 +206,10 @@ class Handler(BaseHTTPRequestHandler):
                 # restava quello dell'invio precedente: "Forza invio a"
                 # veniva ignorato e l'invio finiva sempre al vecchio
                 # destinatario salvato in questo file.
-                destinatario = {"name": recipient_name, "phone": recipient_phone}
+                # isTest: true quando "Forza invio a" e' attivo nel SetUp.
+                # Il motore WhatsApp lo legge per NON aggiornare il flag
+                # "Inviata" su un invio che e' evidentemente solo un test.
+                destinatario = {"name": recipient_name, "phone": recipient_phone, "isTest": is_test}
                 with open(os.path.join(DATA_DIR, "WhatsApp_Destinatario.json"), "w", encoding="utf-8") as fh:
                     json.dump(destinatario, fh, ensure_ascii=False)
 

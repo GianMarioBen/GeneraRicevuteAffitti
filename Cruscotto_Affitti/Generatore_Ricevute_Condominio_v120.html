@@ -2253,7 +2253,8 @@ async function prepareWhatsAppSend(pdfName,messageText,recipient){
         pdfName:String(pdfName||''),
         messageText:String(messageText||'').trim(),
         recipientName:String(recipient?.name||'').trim(),
-        recipientPhone:String(recipient?.phone||'').trim()
+        recipientPhone:String(recipient?.phone||'').trim(),
+        isTest:Boolean(recipient?.forced)
       })
     });
   }catch(e){
@@ -2267,7 +2268,13 @@ async function prepareWhatsAppSend(pdfName,messageText,recipient){
     throw new Error(payload.error || 'Il server locale non riesce a preparare WhatsApp.');
   }
 
-  watchWhatsAppSendStatus(pdfName,sentBaseline);
+  // Con "Forza invio a" attivo l'invio va al destinatario di test, quindi
+  // non ha senso marcare la ricevuta come "Inviata": il motore WhatsApp
+  // (isTest) non scrive nel log e qui non serve nemmeno attendere/mostrare
+  // la conferma.
+  if(!recipient?.forced){
+    watchWhatsAppSendStatus(pdfName,sentBaseline);
+  }
   return true;
 }
 async function sharePdfEntry(entry){

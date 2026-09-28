@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer Cruscotto Affitti v128 — TUTTO-IN-UNO — per il Mac della Mammetta
+# Installer Cruscotto Affitti v129 — TUTTO-IN-UNO — per il Mac della Mammetta
 # (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
 # da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
 #
 # Cosa fa:
 #   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
 #   2. Estrae dai propri dati incorporati e installa:
-#      - WhatsApp_Engine.scpt (compilato da v128 — INVIO diretto dopo numero)
+#      - WhatsApp_Engine.scpt (compilato da v129 — niente flag Inviata sui test)
 #      - Generatore_Ricevute_Condominio.html (v120, con badge versione motore)
 #      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
 #      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
@@ -53,7 +53,7 @@ fail() {
   exit 1
 }
 
-log "=== Installer Cruscotto Affitti v128 (tutto-in-uno) avviato ==="
+log "=== Installer Cruscotto Affitti v129 (tutto-in-uno) avviato ==="
 
 # --- 0. Controlli di base -----------------------------------------------
 
@@ -75,7 +75,7 @@ log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
 
 # --- 1. Estrae i file incorporati in questo installer ---------------------
 
-cat > "$PAYLOAD_DIR/WhatsApp_Engine_v128.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_v129.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
 property dataDir : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute"
 property pointerPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Ricevuta_Da_Inviare.txt"
 property messagePath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Messaggio_Da_Inviare.txt"
@@ -116,6 +116,21 @@ on getRecipientPhone()
 	end try
 	return recipientPhone
 end getRecipientPhone
+
+on isTestSend()
+	-- v129: "Forza invio a" nel SetUp -> il server scrive "isTest":true in
+	-- WhatsApp_Destinatario.json. In quel caso NON dobbiamo registrare il
+	-- successo in WhatsApp_Inviati.log, altrimenti il Generatore
+	-- segnerebbe come "Inviata" una ricevuta che e' stata mandata solo al
+	-- numero di test, non al vero affittuario.
+	try
+		set shellCmd to "/usr/bin/grep -o '\"isTest\"[[:space:]]*:[[:space:]]*true' " & quoted form of configPath
+		do shell script shellCmd
+		return true
+	on error
+		return false
+	end try
+end isTestSend
 
 on focusWhatsAppTab()
 	tell application "Google Chrome"
@@ -1079,7 +1094,7 @@ end performSend
 on run
 	try
 		do shell script "/usr/bin/touch " & quoted form of runLogPath
-		my appendLog("=== Avvio Engine WhatsApp v128 ===")
+		my appendLog("=== Avvio Engine WhatsApp v129 ===")
 
 		set pdfName to my readTextFile(pointerPath)
 		set messageText to my readTextFile(messagePath)
@@ -1108,8 +1123,12 @@ on run
 		my appendLog("Risultato: " & resultText)
 
 		if resultText is "SUCCESS" then
-			my recordSuccess(pdfName)
-			my appendLog("SUCCESS: PDF e messaggio inviati.")
+			if my isTestSend() then
+				my appendLog("SUCCESS (TEST — “Forza invio a” attivo): NON registro in WhatsApp_Inviati.log, il flag \"Inviata\" non verrà aggiornato.")
+			else
+				my recordSuccess(pdfName)
+				my appendLog("SUCCESS: PDF e messaggio inviati.")
+			end if
 		end if
 	on error errMsg number errNum
 		my appendLog("ERRORE " & errNum & ": " & errMsg)
@@ -3376,7 +3395,8 @@ async function prepareWhatsAppSend(pdfName,messageText,recipient){
         pdfName:String(pdfName||''),
         messageText:String(messageText||'').trim(),
         recipientName:String(recipient?.name||'').trim(),
-        recipientPhone:String(recipient?.phone||'').trim()
+        recipientPhone:String(recipient?.phone||'').trim(),
+        isTest:Boolean(recipient?.forced)
       })
     });
   }catch(e){
@@ -3390,7 +3410,13 @@ async function prepareWhatsAppSend(pdfName,messageText,recipient){
     throw new Error(payload.error || 'Il server locale non riesce a preparare WhatsApp.');
   }
 
-  watchWhatsAppSendStatus(pdfName,sentBaseline);
+  // Con "Forza invio a" attivo l'invio va al destinatario di test, quindi
+  // non ha senso marcare la ricevuta come "Inviata": il motore WhatsApp
+  // (isTest) non scrive nel log e qui non serve nemmeno attendere/mostrare
+  // la conferma.
+  if(!recipient?.forced){
+    watchWhatsAppSendStatus(pdfName,sentBaseline);
+  }
   return true;
 }
 async function sharePdfEntry(entry){
@@ -5325,6 +5351,7 @@ class Handler(BaseHTTPRequestHandler):
                 message_text = str(data.get("messageText") or "").strip()
                 recipient_name = str(data.get("recipientName") or "").strip()
                 recipient_phone = str(data.get("recipientPhone") or "").strip()
+                is_test = bool(data.get("isTest"))
 
                 pdf_path = data_path(pdf_name)
                 if not os.path.isfile(pdf_path):
@@ -5345,7 +5372,10 @@ class Handler(BaseHTTPRequestHandler):
                 # restava quello dell'invio precedente: "Forza invio a"
                 # veniva ignorato e l'invio finiva sempre al vecchio
                 # destinatario salvato in questo file.
-                destinatario = {"name": recipient_name, "phone": recipient_phone}
+                # isTest: true quando "Forza invio a" e' attivo nel SetUp.
+                # Il motore WhatsApp lo legge per NON aggiornare il flag
+                # "Inviata" su un invio che e' evidentemente solo un test.
+                destinatario = {"name": recipient_name, "phone": recipient_phone, "isTest": is_test}
                 with open(os.path.join(DATA_DIR, "WhatsApp_Destinatario.json"), "w", encoding="utf-8") as fh:
                     json.dump(destinatario, fh, ensure_ascii=False)
 
@@ -5563,18 +5593,18 @@ backup_if_exists "$PLIST_TARGET" "LaunchAgent_Plist"
 # (ElencoRicevute) perché questo installer non lo scrive mai.
 log "NON toccato (come da regola): $DATA_DIR"
 
-# --- 3. Compila ed installa il motore WhatsApp v128 -----------------------
+# --- 3. Compila ed installa il motore WhatsApp v129 -----------------------
 
 command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
 
-TMP_SCPT="/tmp/WhatsApp_Engine_v128_$STAMP.scpt"
-osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v128.applescript" 2>>"$INSTALL_LOG" \
-  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v128.applescript. Dettagli in $INSTALL_LOG"
+TMP_SCPT="/tmp/WhatsApp_Engine_v129_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v129.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v129.applescript. Dettagli in $INSTALL_LOG"
 
 cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
   || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
 rm -f "$TMP_SCPT"
-log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v128)"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v129)"
 
 # Scrive un file di versione che il server legge e mostra nel Generatore
 # HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
@@ -5584,9 +5614,9 @@ ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
 INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
 cat > "$ENGINE_VERSION_FILE" <<EOF
 {
-  "version": "v128",
+  "version": "v129",
   "installedAt": "$INSTALLED_AT_HUMAN",
-  "sourceFile": "WhatsApp_Engine_v128.applescript"
+  "sourceFile": "WhatsApp_Engine_v129.applescript"
 }
 EOF
 log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
@@ -5640,7 +5670,7 @@ if [ -n "$HEALTH" ]; then
   log "Server risponde: $HEALTH"
   MSG="Installazione completata.
 
-Motore WhatsApp: v128 (nuovo: prova INVIO diretto dopo il numero, prima dei TAB)
+Motore WhatsApp: v129 (non aggiorna "Inviata" per invii di test con Forza invio a)
 Generatore: v120 (con badge versione motore)
 Server: attivo su http://127.0.0.1:8765
 
@@ -5649,7 +5679,7 @@ $BACKUP_DIR
 
 I dati degli affittuari (ElencoRicevute) NON sono stati toccati."
   log "=== Installazione completata con successo ==="
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v128\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v129\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 else
   log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
   MSG="I file sono stati installati e il backup è in:
@@ -5658,7 +5688,7 @@ $BACKUP_DIR
 Ma il server su 127.0.0.1:8765 non ha ancora risposto.
 Prova a riavviare il Mac, oppure controlla il log:
 /tmp/Cruscotto_Affitti_Autostart.log"
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v128\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v129\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 fi
 
 log "Log completo di questa installazione: $INSTALL_LOG"

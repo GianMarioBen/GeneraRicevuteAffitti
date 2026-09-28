@@ -24311,7 +24311,16 @@ else
 fi
 
 touch "$LAUNCHER_APP_TARGET" 2>>"$INSTALL_LOG"
-log "Installato: $LAUNCHER_APP_TARGET"
+
+# macOS mette in cache le icone delle app: senza questo passaggio, dopo
+# aver sostituito l'icona il Dock può continuare a mostrare quella vecchia
+# (o un'icona generica) finché non si forza un aggiornamento.
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+if [ -x "$LSREGISTER" ]; then
+  "$LSREGISTER" -f "$LAUNCHER_APP_TARGET" >>"$INSTALL_LOG" 2>&1
+fi
+killall Dock >>"$INSTALL_LOG" 2>&1 || true
+log "Installato: $LAUNCHER_APP_TARGET (icona ri-registrata, Dock riavviato per aggiornare l'icona)"
 
 # --- 8. Pulizia file temporanei --------------------------------------------
 

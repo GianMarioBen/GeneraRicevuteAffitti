@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer Cruscotto Affitti v131 — TUTTO-IN-UNO — per il Mac della Mammetta
+# Installer Cruscotto Affitti v132 — TUTTO-IN-UNO — per il Mac della Mammetta
 # (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
 # da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
 #
 # Cosa fa:
 #   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
 #   2. Estrae dai propri dati incorporati e installa:
-#      - WhatsApp_Engine.scpt (compilato da v131 — verifica selettore file + click reale su Documento)
+#      - WhatsApp_Engine.scpt (compilato da v132 — PDF allegato senza selettore file macOS)
 #      - Generatore_Ricevute_Condominio.html (v120, con badge versione motore)
 #      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
 #      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
@@ -57,7 +57,7 @@ fail() {
   exit 1
 }
 
-log "=== Installer Cruscotto Affitti v131 (tutto-in-uno) avviato ==="
+log "=== Installer Cruscotto Affitti v132 (tutto-in-uno) avviato ==="
 
 # --- 0. Controlli di base -----------------------------------------------
 
@@ -79,13 +79,19 @@ log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
 
 # --- 1. Estrae i file incorporati in questo installer ---------------------
 
-cat > "$PAYLOAD_DIR/WhatsApp_Engine_v131.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_v132.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
 property dataDir : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute"
 property pointerPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Ricevuta_Da_Inviare.txt"
 property messagePath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Messaggio_Da_Inviare.txt"
 property configPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/WhatsApp_Destinatario.json"
 property sentLogPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/WhatsApp_Inviati.log"
 property runLogPath : "/tmp/Invia_Ricevuta_WhatsApp_Helper_v97.log"
+
+-- v132: frammenti JavaScript condivisi (nessun doppio apice al loro interno)
+property jsVis : "const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>2&&r.height>2&&s.display!=='none'&&s.visibility!=='hidden'};"
+property jsDocEl : "const docEl=()=>{const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){const t=(n.nodeValue||'').trim().toLowerCase();if((t==='documento'||t==='document')&&n.parentElement&&vis(n.parentElement)){return n.parentElement.closest('[role=button],[role=menuitem],button,li')||n.parentElement}}return null};"
+property jsScr : "const scr=el=>{const r=el.getBoundingClientRect();return Math.round(window.screenX+r.left+r.width/2)+'|'+Math.round(window.screenY+(window.outerHeight-window.innerHeight)+r.top+r.height/2)};"
+property jsHits : "const hits=(onlyVis)=>{const f=new Set();const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){if(n.nodeValue&&n.nodeValue.indexOf(name)>=0&&n.parentElement)f.add(n.parentElement)}document.querySelectorAll('[title]').forEach(e=>{if((e.getAttribute('title')||'').indexOf(name)>=0)f.add(e)});document.querySelectorAll('body *').forEach(e=>{const t=e.textContent;if(t&&t.length<name.length+300&&t.indexOf(name)>=0){let c=false;for(const k of e.children){if((k.textContent||'').indexOf(name)>=0){c=true;break}}if(!c)f.add(e)}});const a=[...f];return onlyVis?a.filter(vis):a};"
 
 on appendLog(msg)
 	try
@@ -784,16 +790,310 @@ on waitForFilePicker(initialWindowCount, maxTries)
 	return false
 end waitForFilePicker
 
-on documentoScreenPoint()
-	-- Coordinate di schermo (punti) del centro della voce "Documento" nel
-	-- menu Allega, per un click reale di sistema (non JavaScript).
-	set jsCode to "(function(){try{const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>7&&r.height>7&&s.display!=='none'&&s.visibility!=='hidden'};const els=[...document.querySelectorAll('[role=\"menuitem\"],[role=\"button\"],button,li,[tabindex]')].filter(vis);const txt=e=>((e.innerText||e.textContent||e.getAttribute('aria-label')||'')+'').trim().toLowerCase();let el=els.find(e=>txt(e)==='documento'||txt(e)==='document');if(!el)el=els.find(e=>txt(e).startsWith('documento'));if(!el)return '';const r=el.getBoundingClientRect();const x=Math.round(window.screenX+r.left+r.width/2);const y=Math.round(window.screenY+(window.outerHeight-window.innerHeight)+r.top+r.height/2);return x+','+y}catch(e){return ''}})()"
+-- ===================================================================
+-- v132: allegato PDF senza selettore file macOS
+-- ===================================================================
+-- Dopo l'aggiornamento di WhatsApp Web (28/09/2026) il vecchio metodo
+-- (clic su "+" e "Documento" + selettore file macOS + Cmd+Shift+G) non
+-- funziona più in modo affidabile. In più la ricerca del "+" accettava
+-- qualunque elemento contenente "allegato", e nella chat ci sono ormai i
+-- messaggi "In allegato la ricevuta...": veniva cliccato un messaggio.
+-- Ora il PDF viene letto dal disco e consegnato direttamente a WhatsApp
+-- dentro la pagina (DataTransfer), in quest'ordine:
+--   A: campo file per documenti già presente nella pagina
+--   B: campo file che compare aprendo il menu "+" (trovato in modo stretto)
+--   C: incolla del file nel campo messaggio
+--   D: trascinamento simulato del file sulla chat
+--   E: solo come ultima risorsa, il vecchio selettore file macOS, ma SOLO
+--      se il selettore è davvero aperto (mai più testo nella barra Trova).
+-- L'anteprima e l'invio sono verificati confrontando gli elementi con il
+-- nome del PDF presenti PRIMA dell'allegato con quelli comparsi DOPO, così
+-- un vecchio messaggio con lo stesso PDF non può dare falsi positivi.
+
+on jsTry(jsCode)
 	try
-		return my runWhatsAppJS(jsCode)
-	on error
-		return ""
+		set r to my runWhatsAppJS(jsCode)
+		if r is missing value then return ""
+		return r as text
+	on error errMsg
+		return "ERR:" & errMsg
 	end try
-end documentoScreenPoint
+end jsTry
+
+on pdfJS(safePdfName, body)
+	return "(function(){try{" & jsVis & "const name='" & safePdfName & "';" & jsHits & body & "}catch(x){return 'ERR:'+x}})()"
+end pdfJS
+
+on menuDocumentoVisible()
+	set r to my jsTry("(function(){try{" & jsVis & jsDocEl & "return docEl()?'MENU':'NOMENU'}catch(x){return 'NOMENU'}})()")
+	return (r is "MENU")
+end menuDocumentoVisible
+
+on parseClickPoint(r)
+	-- "CLICK|x|y|..." -> {x, y}; altrimenti {}
+	try
+		set AppleScript's text item delimiters to "|"
+		set parts to text items of r
+		set AppleScript's text item delimiters to ""
+		if (count of parts) < 3 then return {}
+		if (item 1 of parts) is not "CLICK" then return {}
+		return {(item 2 of parts) as integer, (item 3 of parts) as integer}
+	on error
+		set AppleScript's text item delimiters to ""
+		return {}
+	end try
+end parseClickPoint
+
+on clickScreenPoint(pt)
+	tell application "System Events"
+		tell process "Google Chrome"
+			set frontmost to true
+			click at pt
+		end tell
+	end tell
+end clickScreenPoint
+
+on openAttachMenu()
+	if my menuDocumentoVisible() then return "GIA_APERTO"
+	-- Il "+" si cerca SOLO nella barra del messaggio in basso (footer), per
+	-- etichetta che INIZIA con "Allega"/"Attach" o per icona plus/attach:
+	-- mai per testo contenuto, altrimenti si clicca un messaggio della chat.
+	set jsCode to "(function(){try{" & jsVis & jsScr & "const main=document.querySelector('#main');if(!main)return 'NOMAIN';const mr=main.getBoundingClientRect();const root=main.querySelector('footer')||main;const lab=e=>((e.getAttribute('aria-label')||'')+'|'+(e.getAttribute('title')||'')).toLowerCase();const icon=e=>{const s=e.matches('[data-icon]')?e:e.querySelector('[data-icon]');return s?(s.getAttribute('data-icon')||'').toLowerCase():''};const cands=[...root.querySelectorAll('button,[role=button],[aria-label],[title],[data-icon]')].filter(vis).filter(e=>e.getBoundingClientRect().top>mr.bottom-140);const labOk=e=>lab(e).split('|').some(p=>{p=p.trim();return p.indexOf('allega')===0||p.indexOf('attach')===0});let el=cands.find(labOk);if(!el)el=cands.find(e=>{const i=icon(e);return i.indexOf('plus')>=0||i.indexOf('attach')>=0||i.indexOf('clip')>=0});if(!el)return 'NOBTN candidati='+cands.length;const b=el.closest('button,[role=button]')||el;const pt=scr(b);b.click();return 'CLICK|'+pt+'|'+lab(b)+'/'+icon(b)}catch(x){return 'ERR '+x}})()"
+	set r to my jsTry(jsCode)
+	my appendLog("Pulsante + (Allega): " & r)
+	if r does not start with "CLICK" then return "NON_TROVATO"
+	repeat with i from 1 to 8
+		delay 0.15
+		if my menuDocumentoVisible() then return "APERTO_JS"
+	end repeat
+	set pt to my parseClickPoint(r)
+	if (count of pt) is 2 then
+		my appendLog("Menu Allega non aperto dal click JavaScript: click reale sul + a " & (item 1 of pt) & "," & (item 2 of pt))
+		my clickScreenPoint(pt)
+		repeat with i from 1 to 12
+			delay 0.15
+			if my menuDocumentoVisible() then return "APERTO_CLICK_REALE"
+		end repeat
+	end if
+	return "NON_APERTO"
+end openAttachMenu
+
+on waitPdfPreview(safePdfName, maxTries)
+	repeat with i from 1 to maxTries
+		set r to my jsTry(my pdfJS(safePdfName, "const fresh=hits(true).filter(e=>!e.hasAttribute('data-cruscotto-old'));if(!fresh.length)return 'WAIT';fresh.forEach(e=>e.setAttribute('data-cruscotto-preview','1'));return 'READY '+fresh.length;"))
+		if r starts with "READY" then return true
+		delay 0.15
+	end repeat
+	return false
+end waitPdfPreview
+
+on legacyPickerAttach(pdfPath)
+	set m to my openAttachMenu()
+	my appendLog("Metodo E: menu Allega = " & m)
+	if m is "NON_TROVATO" or m is "NON_APERTO" then return "FAIL:ATTACH"
+	tell application "System Events"
+		tell process "Google Chrome"
+			set initialWindowCount to count of windows
+		end tell
+	end tell
+	set r to my jsTry("(function(){try{" & jsVis & jsDocEl & "const el=docEl();if(!el)return 'NODOC';el.click();return 'OK'}catch(x){return 'ERR '+x}})()")
+	my appendLog("Metodo E: click JavaScript su Documento = " & r)
+	set pickerOpen to my waitForFilePicker(initialWindowCount, 14)
+	if not pickerOpen then
+		set pr to my jsTry("(function(){try{" & jsVis & jsDocEl & jsScr & "const el=docEl();if(!el)return 'NODOC';return 'CLICK|'+scr(el)}catch(x){return 'ERR'}})()")
+		set pt to my parseClickPoint(pr)
+		if (count of pt) is 2 then
+			my appendLog("Metodo E: click reale su Documento a " & (item 1 of pt) & "," & (item 2 of pt))
+			my clickScreenPoint(pt)
+			set pickerOpen to my waitForFilePicker(initialWindowCount, 20)
+		else
+			my appendLog("Metodo E: voce Documento non visibile (" & pr & ")")
+		end if
+	end if
+	if not pickerOpen then
+		tell application "System Events"
+			tell process "Google Chrome"
+				key code 53
+			end tell
+		end tell
+		return "FAIL:PICKER"
+	end if
+	my appendLog("Metodo E: selettore file macOS aperto, scelgo il PDF.")
+	delay 0.4
+	set the clipboard to pdfPath
+	tell application "System Events"
+		tell process "Google Chrome"
+			set frontmost to true
+			keystroke "g" using {command down, shift down}
+			delay 0.45
+			keystroke "v" using {command down}
+			delay 0.35
+			key code 36
+			delay 0.9
+			key code 36
+		end tell
+	end tell
+	my appendLog("Metodo E: percorso PDF passato al selettore macOS: " & pdfPath)
+	return "OK"
+end legacyPickerAttach
+
+on attachAndSendPdf(pdfPath)
+	set pdfNameOnly to do shell script "/usr/bin/basename " & quoted form of pdfPath
+	set safePdfName to my replaceText("'", "\\'", pdfNameOnly)
+
+	-- Fotografia di partenza: tutto ciò che mostra già il nome del PDF
+	-- (per esempio un vecchio invio di prova) viene marcato come "vecchio".
+	set r to my jsTry(my pdfJS(safePdfName, "document.querySelectorAll('[data-cruscotto-old],[data-cruscotto-preview],[data-cruscotto-pdf-send]').forEach(e=>{e.removeAttribute('data-cruscotto-old');e.removeAttribute('data-cruscotto-preview');e.removeAttribute('data-cruscotto-pdf-send')});const h=hits(false);h.forEach(e=>e.setAttribute('data-cruscotto-old','1'));return 'BASE '+h.length;"))
+	my appendLog("Riferimenti al PDF già presenti in pagina prima dell'allegato: " & r)
+
+	set fileLoaded to false
+	try
+		set pdfSize to do shell script "/usr/bin/stat -f%z " & quoted form of pdfPath
+		set b64 to do shell script "/usr/bin/base64 < " & quoted form of pdfPath & " | /usr/bin/tr -d '\\n'"
+		set r to my jsTry("(function(){try{const b=atob('" & b64 & "');const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);window.__cruscottoPdf=new File([u],'" & safePdfName & "',{type:'application/pdf',lastModified:Date.now()});return 'FILE:'+window.__cruscottoPdf.size}catch(x){return 'ERR '+x}})()")
+		set b64 to ""
+		my appendLog("PDF caricato nella pagina WhatsApp: " & r & " (byte su disco: " & pdfSize & ")")
+		if r is ("FILE:" & pdfSize) then set fileLoaded to true
+	on error errMsg
+		my appendLog("Impossibile caricare il PDF nella pagina: " & errMsg)
+	end try
+
+	set previewOK to false
+	set usedMethod to ""
+	set jsInputStrict to "(function(){try{const f=window.__cruscottoPdf;if(!f)return 'NOFILE';const ins=[...document.querySelectorAll('input[type=file]')];const acc=i=>(i.getAttribute('accept')||'').toLowerCase().trim();const list=ins.map(i=>'['+acc(i)+']').join(' ');const inp=ins.find(i=>acc(i)==='*');if(!inp)return 'NOINPUT '+ins.length+' '+list;const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}));return 'OK '+ins.length+' '+list}catch(x){return 'ERR '+x}})()"
+	set jsInputMenu to "(function(){try{const f=window.__cruscottoPdf;if(!f)return 'NOFILE';const ins=[...document.querySelectorAll('input[type=file]')];const acc=i=>(i.getAttribute('accept')||'').toLowerCase().trim();const list=ins.map(i=>'['+acc(i)+']').join(' ');let inp=ins.find(i=>acc(i)==='*');if(!inp)inp=ins.find(i=>{const a=acc(i);return a===''||a.indexOf('pdf')>=0||a.indexOf('application')>=0||a.indexOf('*/*')>=0});if(!inp)return 'NOINPUT '+ins.length+' '+list;const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}));return 'OK '+ins.length+' '+list}catch(x){return 'ERR '+x}})()"
+
+	if fileLoaded then
+		-- A: campo file per documenti già presente
+		set r to my jsTry(jsInputStrict)
+		my appendLog("Metodo A (campo file documenti già presente): " & r)
+		if r starts with "OK" then
+			if my waitPdfPreview(safePdfName, 20) then
+				set previewOK to true
+				set usedMethod to "A"
+			end if
+		end if
+
+		-- B: apro il menu "+" e uso il campo file che compare
+		if not previewOK then
+			set m to my openAttachMenu()
+			my appendLog("Menu Allega: " & m)
+			delay 0.4
+			set r to my jsTry(jsInputMenu)
+			my appendLog("Metodo B (campo file del menu Allega): " & r)
+			if r starts with "OK" then
+				if my waitPdfPreview(safePdfName, 20) then
+					set previewOK to true
+					set usedMethod to "B"
+				end if
+			end if
+		end if
+
+		-- C: incollo il file nel campo messaggio
+		if not previewOK then
+			set r to my jsTry("(function(){try{" & jsVis & "const f=window.__cruscottoPdf;if(!f)return 'NOFILE';const main=document.querySelector('#main');if(!main)return 'NOMAIN';const ft=main.querySelector('footer')||main;const boxes=[...ft.querySelectorAll('[contenteditable=true],[role=textbox]')].filter(vis);const box=boxes[boxes.length-1];if(!box)return 'NOBOX';box.focus();const dt=new DataTransfer();dt.items.add(f);box.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));return 'OK'}catch(x){return 'ERR '+x}})()")
+			my appendLog("Metodo C (incolla il file nel campo messaggio): " & r)
+			if r starts with "OK" then
+				if my waitPdfPreview(safePdfName, 20) then
+					set previewOK to true
+					set usedMethod to "C"
+				end if
+			end if
+		end if
+
+		-- D: trascinamento simulato del file sulla chat
+		if not previewOK then
+			set r to my jsTry("(function(){try{const f=window.__cruscottoPdf;if(!f)return 'NOFILE';const t=document.querySelector('#main')||document.body;const dt=new DataTransfer();dt.items.add(f);const o={dataTransfer:dt,bubbles:true,cancelable:true};t.dispatchEvent(new DragEvent('dragenter',o));t.dispatchEvent(new DragEvent('dragover',o));window.__cruscottoDT=dt;return 'OK'}catch(x){return 'ERR '+x}})()")
+			delay 0.6
+			set r2 to my jsTry("(function(){try{const dt=window.__cruscottoDT;if(!dt)return 'NODT';const main=document.querySelector('#main')||document.body;const b=main.getBoundingClientRect();const t=document.elementFromPoint(b.left+b.width/2,b.top+b.height/2)||main;const o={dataTransfer:dt,bubbles:true,cancelable:true};t.dispatchEvent(new DragEvent('dragover',o));t.dispatchEvent(new DragEvent('drop',o));return 'OK '+(t.tagName||'')}catch(x){return 'ERR '+x}})()")
+			my appendLog("Metodo D (trascina il file sulla chat): " & r & " / " & r2)
+			if r2 starts with "OK" then
+				if my waitPdfPreview(safePdfName, 20) then
+					set previewOK to true
+					set usedMethod to "D"
+				end if
+			end if
+		end if
+	end if
+
+	-- E: ultima risorsa, vecchio selettore file macOS (solo se si apre davvero)
+	if not previewOK then
+		set r to my legacyPickerAttach(pdfPath)
+		my appendLog("Metodo E (selettore file macOS): " & r)
+		if r is "OK" then
+			if my waitPdfPreview(safePdfName, 100) then
+				set previewOK to true
+				set usedMethod to "E"
+			end if
+		else if r is "FAIL:PICKER" then
+			display alert "PDF non allegato" message "Non sono riuscita ad allegare il PDF in nessun modo (e il selettore file non si è aperto). Mi fermo senza scrivere nulla altrove." & return & return & pdfNameOnly
+			return "FAIL:PICKER"
+		end if
+	end if
+
+	if not previewOK then
+		my appendLog("FAIL: anteprima PDF non comparsa: " & pdfNameOnly)
+		display alert "Anteprima PDF non comparsa" message "WhatsApp non ha caricato il PDF:" & return & return & pdfNameOnly & return & return & "Quindi NON considero il documento inviato."
+		return "FAIL:PDFPREVIEW"
+	end if
+	my appendLog("Anteprima PDF comparsa (metodo " & usedMethod & "): " & pdfNameOnly)
+
+	-- L'anteprima può comporsi in più passaggi: dopo un attimo marchiamo di
+	-- nuovo tutti gli elementi nuovi come "anteprima".
+	delay 0.8
+	set r to my jsTry(my pdfJS(safePdfName, "const fresh=hits(true).filter(e=>!e.hasAttribute('data-cruscotto-old'));fresh.forEach(e=>e.setAttribute('data-cruscotto-preview','1'));return 'ANTEPRIMA '+fresh.length;"))
+	my appendLog("Elementi dell'anteprima: " & r)
+
+	set sendClicked to false
+	repeat with attempt from 1 to 35
+		set r to my jsTry("(function(){try{" & jsVis & "const prev=[...document.querySelectorAll('[data-cruscotto-preview]')].filter(e=>e.isConnected&&vis(e));if(!prev.length)return 'NOPREVIEW';const isSend=e=>{const l=((e.getAttribute('aria-label')||'')+'|'+(e.getAttribute('title')||'')).toLowerCase();const ic=(e.getAttribute('data-icon')||'').toLowerCase();return ic.indexOf('send')>=0||l.split('|').some(p=>{p=p.trim();return p.indexOf('invia')===0||p.indexOf('send')===0})};let p=prev[0];for(let d=0;d<16&&p;d++,p=p.parentElement){const bs=[...p.querySelectorAll('button,[role=button],[aria-label],[title],[data-icon]')].filter(vis).filter(isSend);if(bs.length){const b=bs[bs.length-1];const t=b.closest('button,[role=button]')||b;t.setAttribute('data-cruscotto-pdf-send','1');t.click();return 'OK livello='+d+' '+(t.getAttribute('aria-label')||'')+'/'+(b.getAttribute('data-icon')||'')}}return 'WAIT'}catch(x){return 'WAIT'}})()")
+		if r starts with "OK" then
+			set sendClicked to true
+			my appendLog("Clic su Invia dell'anteprima PDF: " & r)
+			exit repeat
+		end if
+		delay 0.15
+	end repeat
+
+	if not sendClicked then
+		my appendLog("Pulsante Invia dell'anteprima non trovato: provo con il tasto Invio.")
+		my focusWhatsAppTab()
+		delay 0.3
+		tell application "System Events"
+			tell process "Google Chrome"
+				set frontmost to true
+				key code 36
+			end tell
+		end tell
+	end if
+
+	-- Conferma: l'anteprima deve chiudersi E deve comparire un elemento
+	-- NUOVO con il nome del PDF (il messaggio appena inviato).
+	set pdfSent to false
+	set lastState to ""
+	repeat with attempt from 1 to 160
+		set r to my jsTry(my pdfJS(safePdfName, "const prev=[...document.querySelectorAll('[data-cruscotto-preview]')].filter(e=>e.isConnected&&vis(e));if(prev.length)return 'OPEN';const fresh=hits(true).filter(e=>!e.hasAttribute('data-cruscotto-old')&&!e.hasAttribute('data-cruscotto-preview'));return fresh.length?'SENT':'CLOSED';"))
+		set lastState to r
+		if r is "SENT" then
+			set pdfSent to true
+			exit repeat
+		end if
+		delay 0.15
+	end repeat
+
+	if not pdfSent then
+		my appendLog("FAIL: PDF non confermato nella chat (ultimo stato: " & lastState & ").")
+		if lastState is "OPEN" then
+			display alert "PDF non inviato" message "L’anteprima del PDF è ancora aperta: non sono riuscita a premere Invia." & return & return & pdfNameOnly
+			return "FAIL:PDFSEND"
+		end if
+		display alert "PDF non inviato" message "Non trovo il documento nella conversazione:" & return & return & pdfNameOnly & return & return & "Quindi interrompo prima di scrivere il messaggio."
+		return "FAIL:PDFNOTINCHAT"
+	end if
+
+	my appendLog("PDF REALMENTE inviato e verificato nella chat: " & pdfNameOnly)
+	return "OK"
+end attachAndSendPdf
 
 on performSend(pdfPath, messageText, recipientName, recipientPhone)
 	my openWhatsAppOnlyIfMissing()
@@ -826,213 +1126,8 @@ on performSend(pdfPath, messageText, recipientName, recipientPhone)
 	my focusWhatsAppTab()
 	delay 0.35
 
-	set attachReady to false
-	repeat with attempt from 1 to 40
-		set jsCode to "(function(){const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>5&&r.height>5&&s.display!=='none'&&s.visibility!=='hidden'};const root=document.querySelector('#main');if(!root)return 'WAIT';const els=[...root.querySelectorAll('button,[role=\"button\"],[aria-label],[title]')].filter(vis);const wanted=['attach','allega','allegato','allegati'];const el=els.find(e=>{const s=((e.getAttribute('aria-label')||'')+' '+(e.getAttribute('title')||'')+' '+(e.textContent||'')).toLowerCase();return wanted.some(w=>s.includes(w))});if(el){el.click();return 'OK'}return 'WAIT'})()"
-		try
-			set jsResult to my runWhatsAppJS(jsCode)
-		on error errMsg
-			display alert "Chrome blocca l’automazione" message "In Chrome deve essere attivo:" & return & return & "View → Developer → Allow JavaScript from Apple Events" & return & return & errMsg
-			return "FAIL:JS"
-		end try
-		if jsResult is "OK" then
-			set attachReady to true
-			exit repeat
-		end if
-		delay 0.2
-	end repeat
-
-	if not attachReady then
-		display alert "Pulsante Allega non trovato" message "Ho aperto la chat corretta, ma non trovo il pulsante Allega."
-		return "FAIL:ATTACH"
-	end if
-	my appendLog("Pulsante Allega aperto.")
-
-	my focusWhatsAppTab()
-	tell application "System Events"
-		tell process "Google Chrome"
-			set initialWindowCount to count of windows
-		end tell
-	end tell
-
-	set documentReady to false
-	repeat with attempt from 1 to 30
-		set jsCode to "(function(){const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>7&&r.height>7&&s.display!=='none'&&s.visibility!=='hidden'};const els=[...document.querySelectorAll('[role=\"menuitem\"],[role=\"button\"],button,[tabindex=\"0\"]')].filter(vis);const el=els.find(e=>{const s=((e.innerText||'')+' '+(e.textContent||'')+' '+(e.getAttribute('aria-label')||'')).trim().toLowerCase();return s==='documento'||s==='document'||s.includes('documento')||s.includes('document')});if(el){el.click();return 'OK'}return 'WAIT'})()"
-		try
-			set jsResult to my runWhatsAppJS(jsCode)
-		on error
-			set jsResult to "WAIT"
-		end try
-		if jsResult is "OK" then
-			set documentReady to true
-			exit repeat
-		end if
-		delay 0.15
-	end repeat
-
-	if not documentReady then
-		display alert "Documento non trovato" message "Il menu Allega si è aperto, ma non trovo la voce Documento."
-		return "FAIL:DOCUMENT"
-	end if
-	my appendLog("Voce Documento cliccata (click JavaScript).")
-
-	-- v131: il click JavaScript su "Documento" può non aprire più il
-	-- selettore file (il menu Allega resta aperto). Prima di mandare
-	-- Cmd+Shift+G verifichiamo che il selettore macOS sia DAVVERO aperto:
-	-- altrimenti Cmd+Shift+G in Chrome apre la barra "Trova" e il percorso
-	-- del PDF finisce lì dentro (osservato da Mario).
-	set pickerOpen to my waitForFilePicker(initialWindowCount, 14)
-
-	if not pickerOpen then
-		my appendLog("Selettore file non aperto dal click JavaScript: provo un click reale di sistema su Documento.")
-		set pt to my documentoScreenPoint()
-		if pt contains "," then
-			set AppleScript's text item delimiters to ","
-			set clickX to (text item 1 of pt) as integer
-			set clickY to (text item 2 of pt) as integer
-			set AppleScript's text item delimiters to ""
-			my appendLog("Click reale su Documento alle coordinate " & clickX & "," & clickY)
-			tell application "System Events"
-				tell process "Google Chrome"
-					set frontmost to true
-					click at {clickX, clickY}
-				end tell
-			end tell
-			set pickerOpen to my waitForFilePicker(initialWindowCount, 20)
-		else
-			my appendLog("Voce Documento non più visibile per il click reale.")
-		end if
-	end if
-
-	if not pickerOpen then
-		my appendLog("FAIL: il selettore file macOS non si è aperto. NON mando Cmd+Shift+G (finirebbe nella barra Trova).")
-		tell application "System Events"
-			tell process "Google Chrome"
-				key code 53
-			end tell
-		end tell
-		display alert "Selettore file non aperto" message "Ho cliccato su Documento, ma la finestra per scegliere il PDF non è comparsa. Mi fermo senza scrivere nulla altrove."
-		return "FAIL:PICKER"
-	end if
-	my appendLog("Selettore file macOS aperto: procedo con la scelta del PDF.")
-
-	-- v105: selezione PDF + verifica REALE dell'anteprima.
-	-- Non dichiariamo più "PDF inviato" solo perché troviamo un generico
-	-- pulsante Invia nella pagina.
-	set pdfNameOnly to do shell script "/usr/bin/basename " & quoted form of pdfPath
-	set safePdfName to my replaceText("'", "\\'", pdfNameOnly)
-
-	delay 0.4
-
-	set the clipboard to pdfPath
-	tell application "System Events"
-		tell process "Google Chrome"
-			set frontmost to true
-			keystroke "g" using {command down, shift down}
-			delay 0.45
-			keystroke "v" using {command down}
-			delay 0.35
-			key code 36
-			delay 0.9
-			key code 36
-		end tell
-	end tell
-	my appendLog("Percorso PDF passato al selettore macOS: " & pdfPath)
-
-	-- Prima prova: l'anteprima deve mostrare proprio il NOME DI QUESTO PDF.
-	set previewReady to false
-	repeat with attempt from 1 to 100
-		set jsCode to "(function(){try{const name='" & safePdfName & "';const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>5&&r.height>5&&s.display!=='none'&&s.visibility!=='hidden'};const all=[...document.querySelectorAll('body *')].filter(vis);const hit=all.find(e=>{const t=((e.getAttribute&&e.getAttribute('title'))||e.textContent||'').trim();return t===name||t.includes(name)});return hit?'READY':'WAIT'}catch(e){return 'WAIT'}})()"
-		try
-			set jsResult to my runWhatsAppJS(jsCode)
-		on error
-			set jsResult to "WAIT"
-		end try
-		if jsResult is "READY" then
-			set previewReady to true
-			exit repeat
-		end if
-		delay 0.15
-	end repeat
-
-	if not previewReady then
-		my appendLog("FAIL: anteprima PDF non comparsa: " & pdfNameOnly)
-		display alert "Anteprima PDF non comparsa" message "WhatsApp non ha caricato il PDF dopo la selezione:" & return & return & pdfNameOnly & return & return & "Quindi NON considero il documento inviato."
-		return "FAIL:PDFPREVIEW"
-	end if
-	my appendLog("Anteprima PDF verificata: " & pdfNameOnly)
-
-	-- Seconda prova: troviamo il pulsante INVIA collegato all'anteprima che
-	-- contiene il nome del PDF. Lo marchiamo, così possiamo poi verificare
-	-- che quella specifica anteprima sia realmente scomparsa.
-	set previewSendClicked to false
-	repeat with attempt from 1 to 80
-		set jsCode to "(function(){try{const name='" & safePdfName & "';const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>7&&r.height>7&&s.display!=='none'&&s.visibility!=='hidden'};const all=[...document.querySelectorAll('body *')].filter(vis);const hit=all.find(e=>{const t=((e.getAttribute&&e.getAttribute('title'))||e.textContent||'').trim();return t===name||t.includes(name)});if(!hit)return 'WAIT';let p=hit;for(let depth=0;depth<14&&p;depth++,p=p.parentElement){const buttons=[...p.querySelectorAll('button,[role=\"button\"],[aria-label],[title]')].filter(vis);const send=buttons.find(e=>{const t=((e.getAttribute('aria-label')||'')+' '+(e.getAttribute('title')||'')+' '+(e.textContent||'')).trim().toLowerCase();return t==='invia'||t==='send'||t==='invia messaggio'||t==='send message'||t.includes('invia')||t.includes('send')});if(send){send.setAttribute('data-cruscotto-pdf-send','1');send.click();return 'OK'}}return 'WAIT'}catch(e){return 'WAIT'}})()"
-		try
-			set jsResult to my runWhatsAppJS(jsCode)
-		on error
-			set jsResult to "WAIT"
-		end try
-		if jsResult is "OK" then
-			set previewSendClicked to true
-			exit repeat
-		end if
-		delay 0.15
-	end repeat
-
-	if not previewSendClicked then
-		my appendLog("FAIL: pulsante Invia dell'anteprima PDF non trovato.")
-		display alert "Invio PDF non trovato" message "L’anteprima del PDF è comparsa, ma non trovo il pulsante Invia appartenente a quell’anteprima."
-		return "FAIL:PDFSEND"
-	end if
-	my appendLog("Clic sul pulsante Invia dell'anteprima PDF.")
-
-	-- Terza prova: la SPECIFICA anteprima deve chiudersi.
-	set previewClosed to false
-	repeat with attempt from 1 to 120
-		set jsCode to "(function(){try{const e=document.querySelector('[data-cruscotto-pdf-send=\"1\"]');if(!e)return 'CLOSED';const r=e.getBoundingClientRect();const s=getComputedStyle(e);return (r.width<2||r.height<2||s.display==='none'||s.visibility==='hidden')?'CLOSED':'WAIT'}catch(x){return 'WAIT'}})()"
-		try
-			set jsResult to my runWhatsAppJS(jsCode)
-		on error
-			set jsResult to "WAIT"
-		end try
-		if jsResult is "CLOSED" then
-			set previewClosed to true
-			exit repeat
-		end if
-		delay 0.15
-	end repeat
-
-	if not previewClosed then
-		my appendLog("FAIL: anteprima PDF non si è chiusa dopo Invia.")
-		display alert "PDF non confermato" message "Ho premuto Invia nell’anteprima, ma l’anteprima non si è chiusa. Non considero il PDF inviato."
-		return "FAIL:PDFPREVIEWCLOSE"
-	end if
-
-	-- Quarta prova: dopo la chiusura dell'anteprima il nome del PDF deve
-	-- comparire nella conversazione. SOLO ORA scriviamo "PDF inviato".
-	set pdfReallySent to false
-	repeat with attempt from 1 to 160
-		set jsCode to "(function(){try{const name='" & safePdfName & "';const main=document.querySelector('#main');if(!main)return 'WAIT';const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>5&&r.height>5&&s.display!=='none'&&s.visibility!=='hidden'};const candidates=[...main.querySelectorAll('[data-testid=\"msg-container\"],[role=\"row\"],[title],span,div')].filter(vis);const hit=candidates.find(e=>{const t=((e.getAttribute&&e.getAttribute('title'))||e.textContent||'').trim();if(!(t===name||t.includes(name)))return false;return !e.closest('[role=\"dialog\"]')});return hit?'SENT':'WAIT'}catch(e){return 'WAIT'}})()"
-		try
-			set jsResult to my runWhatsAppJS(jsCode)
-		on error
-			set jsResult to "WAIT"
-		end try
-		if jsResult is "SENT" then
-			set pdfReallySent to true
-			exit repeat
-		end if
-		delay 0.15
-	end repeat
-
-	if not pdfReallySent then
-		my appendLog("FAIL: il nome del PDF non compare nella conversazione dopo Invio.")
-		display alert "PDF non inviato" message "L’anteprima si è chiusa, ma non trovo il documento nella conversazione:" & return & return & pdfNameOnly & return & return & "Quindi interrompo prima di scrivere il messaggio."
-		return "FAIL:PDFNOTINCHAT"
-	end if
-
-	my appendLog("PDF REALMENTE inviato e verificato nella chat: " & pdfNameOnly)
+	set attachResult to my attachAndSendPdf(pdfPath)
+	if attachResult is not "OK" then return attachResult
 
 	-- Solo dopo la verifica reale del PDF attendiamo il composer.
 	set chatReadyAfterPdf to false
@@ -1212,7 +1307,7 @@ on run
 	set minimizedWindowIDs to {}
 	try
 		do shell script "/usr/bin/touch " & quoted form of runLogPath
-		my appendLog("=== Avvio Engine WhatsApp v131 ===")
+		my appendLog("=== Avvio Engine WhatsApp v132 ===")
 
 		set pdfName to my readTextFile(pointerPath)
 		set messageText to my readTextFile(messagePath)
@@ -5693,37 +5788,35 @@ cat > "$PAYLOAD_DIR/com.letmar.cruscottoaffitti.server.plist" <<'___CRUSCOTTO_PA
 ___CRUSCOTTO_PAYLOAD_PLIST_9f3c1a___
 
 cat > "$PAYLOAD_DIR/Cruscotto_Affitti_Launcher.applescript" <<'___CRUSCOTTO_PAYLOAD_LAUNCHER_9f3c1a___'
--- Cruscotto Affitti — Launcher
+-- Cruscotto Affitti — Launcher (applet "stay-open", con icona propria nel Dock)
 --
--- Apre SOLO il Generatore Ricevute come vera finestra-app di Google Chrome
--- (niente tab, niente barra indirizzi, niente segnalibri), tramite il flag
--- --app=. Ricostruito da Claude/Camilla a partire dall'app funzionante che
--- "Camilla Ciatti" (ChatGPT) aveva già creato in precedenza (stesso URL,
--- stesse opzioni di Chrome), qui come sorgente leggibile e versionabile
--- invece che come solo eseguibile compilato.
+-- Apre SOLO il Generatore Ricevute come finestra-app di Google Chrome
+-- (niente tab, niente barra indirizzi) tramite il flag --app=, come il
+-- tentativo originale di "Camilla Ciatti". Da v2 il launcher RESTA APERTO
+-- finché il Generatore è aperto, così nel Dock c'è la sua icona (la
+-- casetta) invece di avere il Generatore solo "dentro" l'icona di Chrome:
+--   - clic sull'icona nel Dock  -> riporta in primo piano il Generatore
+--     (anche se era minimizzato), oppure lo riapre se era stato chiuso;
+--   - non apre mai una seconda finestra se il Generatore è già aperto;
+--   - quando la finestra del Generatore viene chiusa, il launcher si
+--     chiude da solo dopo pochi secondi.
+-- Va compilato come applet stay-open: osacompile -s -o "Cruscotto Affitti.app" ...
 --
--- IMPORTANTE — cosa NON fa questo launcher:
--- WhatsApp Web NON viene mai toccato da questo launcher e resta sempre
--- una scheda di una normale finestra di Google Chrome, esattamente come
--- prima. WhatsApp_Engine.scpt individua la scheda giusta cercando l'URL
--- "web.whatsapp.com" fra TUTTE le finestre di Google Chrome aperte, quindi
--- la finestra-app del Generatore (che ha un URL diverso) viene ignorata
--- automaticamente da quella ricerca e non dovrebbe interferire con
--- l'automazione dell'invio. Il vecchio testimone del progetto segnalava
--- problemi di focus quando era WhatsApp stesso ad essere aperto in
--- modalità --app: qui invece è SOLO il Generatore ad usare --app, WhatsApp
--- resta tab normale. Va comunque testato con calma il flusso di invio
--- WhatsApp mentre questa finestra-app è aperta, prima di fidarsi al 100%.
+-- WhatsApp Web NON viene toccato: resta una scheda di una normale finestra
+-- Chrome. Durante l'invio il motore WhatsApp minimizza temporaneamente la
+-- finestra del Generatore (e la ripristina alla fine) per evitare che
+-- rubi il focus dei tasti.
 --
--- Se il server locale (127.0.0.1:8765) non risulta già attivo, questo
--- launcher lo avvia da solo usando lo stesso runner del LaunchAgent,
--- prima di aprire la finestra.
+-- Il launcher legge solo titoli/URL delle finestre di Chrome ogni pochi
+-- secondi; non manda tasti e non porta Chrome in primo piano da solo.
 
 property serverHealthURL : "http://127.0.0.1:8765/api/health"
 property generatoreURL : "http://127.0.0.1:8765/Generatore_Ricevute_Condominio.html"
+property generatoreKey : "Generatore_Ricevute_Condominio.html"
 property serverRunner : "/Users/bless/Library/Application Support/CruscottoAffitti/Avvia_Cruscotto_Affitti_Server.sh"
 property chromeBinary : "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 property wrapperLog : "/tmp/Cruscotto_Affitti_Wrapper.log"
+property idleTicks : 0
 
 on isServerUp()
 	try
@@ -5734,44 +5827,6 @@ on isServerUp()
 	end try
 end isServerUp
 
-on run
-	if not my isServerUp() then
-		try
-			do shell script "nohup /bin/bash " & quoted form of serverRunner & " >/tmp/Cruscotto_Affitti_Launcher_Server.log 2>&1 &"
-		on error errMsg
-			display alert "Non riesco ad avviare il server locale" message errMsg
-			return
-		end try
-
-		set started to false
-		repeat with attempt from 1 to 20
-			delay 0.5
-			if my isServerUp() then
-				set started to true
-				exit repeat
-			end if
-		end repeat
-
-		if not started then
-			display alert "Non riesco ad avviare il server locale" message "Il server su 127.0.0.1:8765 non ha risposto entro 10 secondi. Prova a riavviare il Mac, oppure controlla /tmp/Cruscotto_Affitti_Autostart.log."
-			return
-		end if
-	end if
-
-	if not (my fileExists(chromeBinary)) then
-		display alert "Google Chrome non trovato" message "Non trovo Google Chrome in " & chromeBinary & ". Il Generatore deve girare dentro Chrome."
-		return
-	end if
-
-	-- Apre il Generatore come vera finestra-app Chrome.
-	-- Niente tab, niente barra indirizzi, niente segnalibri.
-	try
-		do shell script "nohup " & quoted form of chromeBinary & " --app=" & quoted form of generatoreURL & " --window-size=1500,900 --no-first-run --disable-session-crashed-bubble >" & quoted form of wrapperLog & " 2>&1 &"
-	on error errMsg
-		display alert "Impossibile aprire Google Chrome" message errMsg
-	end try
-end run
-
 on fileExists(posixPath)
 	try
 		do shell script "/bin/test -e " & quoted form of posixPath
@@ -5780,6 +5835,109 @@ on fileExists(posixPath)
 		return false
 	end try
 end fileExists
+
+on ensureServer()
+	if my isServerUp() then return true
+	try
+		do shell script "nohup /bin/bash " & quoted form of serverRunner & " >/tmp/Cruscotto_Affitti_Launcher_Server.log 2>&1 &"
+	on error errMsg
+		display alert "Non riesco ad avviare il server locale" message errMsg
+		return false
+	end try
+	repeat with attempt from 1 to 20
+		delay 0.5
+		if my isServerUp() then return true
+	end repeat
+	display alert "Non riesco ad avviare il server locale" message "Il server su 127.0.0.1:8765 non ha risposto entro 10 secondi. Prova a riavviare il Mac, oppure controlla /tmp/Cruscotto_Affitti_Autostart.log."
+	return false
+end ensureServer
+
+on chromeRunning()
+	try
+		return (application "Google Chrome" is running)
+	on error
+		return false
+	end try
+end chromeRunning
+
+on generatoreWindowID()
+	-- id della finestra Chrome che mostra il Generatore; missing value se
+	-- non c'è; "ERR" se Chrome non ha risposto (in quel caso NON chiudiamo).
+	if not my chromeRunning() then return missing value
+	try
+		tell application "Google Chrome"
+			repeat with w in windows
+				try
+					repeat with t in tabs of w
+						if (URL of t) contains generatoreKey then return id of w
+					end repeat
+				end try
+			end repeat
+		end tell
+	on error
+		return "ERR"
+	end try
+	return missing value
+end generatoreWindowID
+
+on bringGeneratoreToFront()
+	set wid to my generatoreWindowID()
+	if wid is missing value or wid is "ERR" then return false
+	try
+		tell application "Google Chrome"
+			set w to (first window whose id is wid)
+			set minimized of w to false
+			set index of w to 1
+			activate
+		end tell
+		return true
+	on error
+		return false
+	end try
+end bringGeneratoreToFront
+
+on openGeneratore()
+	if my bringGeneratoreToFront() then return
+	if not my ensureServer() then return
+	if not (my fileExists(chromeBinary)) then
+		display alert "Google Chrome non trovato" message "Non trovo Google Chrome in " & chromeBinary & ". Il Generatore deve girare dentro Chrome."
+		return
+	end if
+	-- Apre il Generatore come vera finestra-app Chrome.
+	try
+		do shell script "nohup " & quoted form of chromeBinary & " --app=" & quoted form of generatoreURL & " --window-size=1500,900 --no-first-run --disable-session-crashed-bubble >" & quoted form of wrapperLog & " 2>&1 &"
+	on error errMsg
+		display alert "Impossibile aprire Google Chrome" message errMsg
+	end try
+end openGeneratore
+
+on run
+	set idleTicks to 0
+	my openGeneratore()
+end run
+
+on reopen
+	-- clic sull'icona nel Dock mentre il launcher è già aperto
+	set idleTicks to 0
+	my openGeneratore()
+end reopen
+
+on idle
+	set idleTicks to idleTicks + 1
+	-- i primi ~15 secondi lasciamo a Chrome il tempo di aprire la finestra
+	if idleTicks > 5 then
+		set wid to my generatoreWindowID()
+		if wid is missing value then
+			tell me to quit
+			return 1
+		end if
+	end if
+	return 3
+end idle
+
+on quit
+	continue quit
+end quit
 
 ___CRUSCOTTO_PAYLOAD_LAUNCHER_9f3c1a___
 
@@ -24291,18 +24449,18 @@ backup_dir_if_exists "$LAUNCHER_APP_TARGET" "Launcher_App"
 # (ElencoRicevute) perché questo installer non lo scrive mai.
 log "NON toccato (come da regola): $DATA_DIR"
 
-# --- 3. Compila ed installa il motore WhatsApp v131 -----------------------
+# --- 3. Compila ed installa il motore WhatsApp v132 -----------------------
 
 command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
 
-TMP_SCPT="/tmp/WhatsApp_Engine_v131_$STAMP.scpt"
-osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v131.applescript" 2>>"$INSTALL_LOG" \
-  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v131.applescript. Dettagli in $INSTALL_LOG"
+TMP_SCPT="/tmp/WhatsApp_Engine_v132_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v132.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v132.applescript. Dettagli in $INSTALL_LOG"
 
 cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
   || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
 rm -f "$TMP_SCPT"
-log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v131)"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v132)"
 
 # Scrive un file di versione che il server legge e mostra nel Generatore
 # HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
@@ -24312,9 +24470,9 @@ ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
 INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
 cat > "$ENGINE_VERSION_FILE" <<EOF
 {
-  "version": "v131",
+  "version": "v132",
   "installedAt": "$INSTALLED_AT_HUMAN",
-  "sourceFile": "WhatsApp_Engine_v131.applescript"
+  "sourceFile": "WhatsApp_Engine_v132.applescript"
 }
 EOF
 log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
@@ -24360,11 +24518,16 @@ log "LaunchAgent avviato/ricaricato."
 # scheda di una normale finestra Google Chrome, come oggi. Vedi i commenti
 # dentro Cruscotto_Affitti_Launcher.applescript per i dettagli.
 
+# Se il launcher (ora applet che resta aperta) è in esecuzione, lo chiudo
+# prima di sostituirlo. pkill sul suo eseguibile: non avvia nulla.
+pkill -f "Cruscotto Affitti.app/Contents/MacOS/applet" >>"$INSTALL_LOG" 2>&1 || true
+sleep 1
+
 if [ -e "$LAUNCHER_APP_TARGET" ]; then
   rm -rf "$LAUNCHER_APP_TARGET"
 fi
 
-osacompile -o "$LAUNCHER_APP_TARGET" "$PAYLOAD_DIR/Cruscotto_Affitti_Launcher.applescript" 2>>"$INSTALL_LOG" \
+osacompile -s -o "$LAUNCHER_APP_TARGET" "$PAYLOAD_DIR/Cruscotto_Affitti_Launcher.applescript" 2>>"$INSTALL_LOG" \
   || fail "osacompile ha fallito la compilazione del launcher Cruscotto Affitti.app. Dettagli in $INSTALL_LOG"
 
 mkdir -p "$LAUNCHER_APP_TARGET/Contents/Resources"
@@ -24409,10 +24572,10 @@ if [ -n "$HEALTH" ]; then
   log "Server risponde: $HEALTH"
   MSG="Installazione completata.
 
-Motore WhatsApp: v131 (verifica il selettore file + click reale su Documento)
+Motore WhatsApp: v132 (PDF allegato senza selettore file macOS)
 Generatore: v120 (con badge versione motore)
 Server: attivo su http://127.0.0.1:8765
-Launcher: Cruscotto Affitti.app in ~/Applications
+Launcher: Cruscotto Affitti.app in ~/Applications (icona propria nel Dock)
 
 Backup della versione precedente salvato in:
 $BACKUP_DIR
@@ -24421,7 +24584,7 @@ I dati degli affittuari (ElencoRicevute) NON sono stati toccati.
 WhatsApp continua a funzionare come scheda Chrome normale: provalo con
 calma prima di fidartene al 100%."
   log "=== Installazione completata con successo ==="
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v131\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v132\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 else
   log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
   MSG="I file sono stati installati e il backup è in:
@@ -24430,7 +24593,7 @@ $BACKUP_DIR
 Ma il server su 127.0.0.1:8765 non ha ancora risposto.
 Prova a riavviare il Mac, oppure controlla il log:
 /tmp/Cruscotto_Affitti_Autostart.log"
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v131\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v132\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 fi
 
 log "Log completo di questa installazione: $INSTALL_LOG"

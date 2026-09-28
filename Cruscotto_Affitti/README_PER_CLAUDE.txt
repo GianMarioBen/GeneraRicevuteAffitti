@@ -230,7 +230,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v131.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v132.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -334,6 +334,45 @@ Su macOS si possono compilare in .scpt con:
    "Selettore file non aperto", FAIL:PICKER — mai più tasti mandati alla
    cieca nella barra Trova. Resto del flusso invariato.
 
+6n. WhatsApp_Engine_v132.applescript — PDF allegato SENZA selettore file macOS
+   Test reale v131: "Voce Documento non più visibile", il menu "+" non si
+   apriva nemmeno. CAUSA TROVATA leggendo il codice: il pulsante "+" veniva
+   cercato come QUALSIASI elemento di #main contenente "allegato"/"allega",
+   e nella chat di prova ci sono ormai i messaggi inviati "Buona sera In
+   allegato la ricevuta..." -> veniva cliccato un messaggio. Idem "Documento"
+   (bastava contenere "document"). Spiega perché ha smesso di funzionare
+   proprio dopo i primi invii riusciti.
+   Fix (nuova funzione attachAndSendPdf, il resto del flusso invariato):
+   - "+" cercato SOLO nella barra del messaggio (footer / fascia in basso),
+     per etichetta che INIZIA con Allega/Attach o icona plus/attach/clip;
+     "Documento" solo con testo ESATTO; se il menu è già aperto non si
+     riclicca (lo richiuderebbe); click reale di sistema se quello JS non
+     basta.
+   - Il PDF viene letto dal disco (base64) e consegnato a WhatsApp come
+     File dentro la pagina (DataTransfer), niente dialogo macOS:
+     A campo file documenti (accept="*") già presente; B campo file del
+     menu "+"; C incolla nel campo messaggio; D trascinamento sulla chat;
+     E solo come ultima risorsa il vecchio selettore macOS, e solo se si
+     apre davvero (mai più testo nella barra Trova).
+   - Anteprima/invio verificati confrontando gli elementi col nome del PDF
+     PRIMA e DOPO (i vecchi vengono marcati), quindi un vecchio invio dello
+     stesso PDF non dà falsi positivi. Invia dell'anteprima trovato vicino
+     all'anteprima (aria-label Invia/Send o icona send), altrimenti Invio.
+   Verificato in Chromium (Playwright) su una pagina finta con le stesse
+   trappole (vecchio messaggio "In allegato" cliccabile, vecchio PDF con
+   lo stesso nome) in 3 varianti (menu, incolla, trascina): PDF arrivato
+   integro, "+" giusto, conferma solo dopo il nuovo messaggio; nel caso in
+   cui nessun metodo funziona nessun falso successo.
+
+6o. Launcher v2 (stay-open) — icona propria nel Dock
+   Il launcher apriva la finestra Chrome e si chiudeva subito: nel Dock
+   restava solo Chrome (Mario: "va dentro a Chrome"). Ora è compilato come
+   applet stay-open (osacompile -s): resta aperto con l'icona della
+   casetta finché il Generatore è aperto; clic sull'icona = riporta in
+   primo piano il Generatore (anche se minimizzato) o lo riapre; non apre
+   mai doppioni; si chiude da solo quando la finestra del Generatore viene
+   chiusa. L'installer chiude la vecchia copia (pkill) prima di sostituirla.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"
@@ -351,7 +390,7 @@ Su macOS si possono compilare in .scpt con:
    decodificata dall'installer sia byte-per-byte identica all'originale.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v131.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v132.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

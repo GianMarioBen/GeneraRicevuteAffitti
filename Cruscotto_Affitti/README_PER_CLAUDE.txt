@@ -230,7 +230,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v136.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v137.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -421,6 +421,13 @@ Su macOS si possono compilare in .scpt con:
    icona propria nel Dock. Se in futuro WhatsApp Web cambiasse di nuovo,
    ripartire da qui con il solito metodo: prima i log, poi il fix mirato.
 
+6u. v137 — pulsante "?" (prima dell'ingranaggio) che apre la finestra
+   "Storia delle versioni": elenco numerato v89 -> v137 con una frase per
+   versione (openHistory/closeHistory, stile della finestra Configurazione).
+   I pulsanti del titolo ora vanno a capo se il pannello è stretto.
+   Etichetta del Generatore aggiornata a v137. Motore identico a v136.
+   NOTA: a ogni nuova versione aggiungere una voce in #historyModal.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"
@@ -438,7 +445,7 @@ Su macOS si possono compilare in .scpt con:
    decodificata dall'installer sia byte-per-byte identica all'originale.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v136.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v137.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer Cruscotto Affitti v136 — TUTTO-IN-UNO — per il Mac della Mammetta
+# Installer Cruscotto Affitti v137 — TUTTO-IN-UNO — per il Mac della Mammetta
 # (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
 # da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
 #
 # Cosa fa:
 #   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
 #   2. Estrae dai propri dati incorporati e installa:
-#      - WhatsApp_Engine.scpt (compilato da v136 — ripristino del Generatore con doppia strada e log)
+#      - WhatsApp_Engine.scpt (compilato da v137 — pulsante ? con la storia delle versioni)
 #      - Generatore_Ricevute_Condominio.html (v120, con badge versione motore)
 #      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
 #      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
@@ -57,7 +57,7 @@ fail() {
   exit 1
 }
 
-log "=== Installer Cruscotto Affitti v136 (tutto-in-uno) avviato ==="
+log "=== Installer Cruscotto Affitti v137 (tutto-in-uno) avviato ==="
 
 # --- 0. Controlli di base -----------------------------------------------
 
@@ -79,7 +79,7 @@ log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
 
 # --- 1. Estrae i file incorporati in questo installer ---------------------
 
-cat > "$PAYLOAD_DIR/WhatsApp_Engine_v136.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_v137.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
 property dataDir : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute"
 property pointerPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Ricevuta_Da_Inviare.txt"
 property messagePath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Messaggio_Da_Inviare.txt"
@@ -1401,7 +1401,7 @@ on run
 	set minimizedWindowIDs to {}
 	try
 		do shell script "/usr/bin/touch " & quoted form of runLogPath
-		my appendLog("=== Avvio Engine WhatsApp v136 ===")
+		my appendLog("=== Avvio Engine WhatsApp v137 ===")
 
 		set pdfName to my readTextFile(pointerPath)
 		set messageText to my readTextFile(messagePath)
@@ -1490,9 +1490,9 @@ cat > "$PAYLOAD_DIR/Generatore_Ricevute_Condominio_v120.html" <<'___CRUSCOTTO_PA
   }
   .splitter:hover,.splitter.dragging{background:#bdbdbd}
   h1{font-size:21px;margin:0}
-  .app-title-row{display:flex;align-items:center;gap:10px;margin:0 0 16px}
+  .app-title-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 16px}
   .app-title-row h1{flex:1}
-  .title-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .title-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;flex:0 1 auto;max-width:100%}
   .settings-button{
     flex:0 0 38px;width:38px;height:38px;margin:0;padding:0;
     border:1px solid #999;border-radius:9px;background:#f2f2f2;
@@ -1504,6 +1504,10 @@ cat > "$PAYLOAD_DIR/Generatore_Ricevute_Condominio_v120.html" <<'___CRUSCOTTO_PA
     z-index:10000;padding:20px;background:rgba(0,0,0,.55)
   }
   .settings-modal.open{display:flex}
+  .history-list{margin:0;padding-left:28px;line-height:1.45}
+  .history-list li{margin:0 0 10px}
+  .history-list b{color:#0a6b3d}
+  .history-sep{margin:14px 0 8px;font-weight:700;color:#555}
   .settings-card{
     width:min(1180px,97vw);background:#fff;border-radius:13px;
     box-shadow:0 14px 45px rgba(0,0,0,.35);overflow:hidden
@@ -2282,7 +2286,7 @@ cat > "$PAYLOAD_DIR/Generatore_Ricevute_Condominio_v120.html" <<'___CRUSCOTTO_PA
 <div class="app">
   <div class="panel">
     <div class="app-title-row">
-      <h1>Generatore ricevute <span style="font-size:12px;font-weight:400;color:#666">v120</span> <span id="whatsappEngineBadge" style="font-size:11px;font-weight:400;color:#888" title="Versione del motore WhatsApp installata sul server locale"></span></h1>
+      <h1>Generatore ricevute <span style="font-size:12px;font-weight:400;color:#666">v137</span> <span id="whatsappEngineBadge" style="font-size:11px;font-weight:400;color:#888" title="Versione del motore WhatsApp installata sul server locale"></span></h1>
       <div class="title-actions">
         <button type="button" class="advanced-toggle compact-toggle" id="advancedToggleBtn" onclick="toggleAdvancedFields()">
           Mostra più campi
@@ -2290,6 +2294,7 @@ cat > "$PAYLOAD_DIR/Generatore_Ricevute_Condominio_v120.html" <<'___CRUSCOTTO_PA
         <button type="button" class="new-receipt compact-new-receipt" onclick="clearForm()" title="Inizia una nuova ricevuta">
           Nuova ricevuta
         </button>
+        <button type="button" class="settings-button" onclick="openHistory()" title="Storia delle versioni" aria-label="Apri storia delle versioni">?</button>
         <button type="button" class="settings-button" onclick="openSettings()" title="Configurazione" aria-label="Apri configurazione">⚙</button>
       </div>
     </div>
@@ -4097,6 +4102,16 @@ async function openSettings(){
   modal.classList.add('open');
   modal.setAttribute('aria-hidden','false');
 }
+function openHistory(){
+  const modal=$('historyModal');
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+}
+function closeHistory(){
+  const modal=$('historyModal');
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden','true');
+}
 function closeSettings(){
   const modal=$('settingsModal');
   modal.classList.remove('open');
@@ -5361,6 +5376,44 @@ if(document.readyState==='loading'){
 }
 </script>
 
+<div class="settings-modal" id="historyModal" aria-hidden="true" onclick="if(event.target===this)closeHistory()">
+  <div class="settings-card">
+    <div class="settings-header">
+      <div class="settings-title">Storia delle versioni</div>
+      <button type="button" class="settings-close" onclick="closeHistory()">Chiudi</button>
+    </div>
+    <div class="settings-content">
+      <div class="history-sep">Le basi del progetto</div>
+      <ol class="history-list">
+        <li><b>v89</b> — Server locale sul Mac (indirizzo 127.0.0.1:8765): il Generatore legge e scrive la cartella ElencoRicevute, cosa che Chrome su High Sierra non riusciva a fare da solo.</li>
+        <li><b>v97</b> — Invio WhatsApp attraverso il server locale e un'app Helper autorizzata da macOS.</li>
+        <li><b>v104</b> — L'app Helper diventa un «guscio» che non si modifica più: le correzioni vanno solo nel motore WhatsApp, così non si perde il permesso di Accessibilità.</li>
+        <li><b>v105</b> — Primo invio completo riuscito da una scheda Chrome: PDF allegato e messaggio.</li>
+        <li><b>v114</b> — Il destinatario viene cercato in WhatsApp per numero di telefono, con la scorciatoia Cmd+Ctrl+/.</li>
+        <li><b>v115</b> — Colonna NUMERO WHATSAPP negli affittuari; il numero viene usato così com'è, senza aggiungere il 39.</li>
+        <li><b>v118</b> — Il server parte da solo all'accensione del Mac.</li>
+        <li><b>v120</b> — Interfaccia semplificata con Passo 1–4, «Nuova ricevuta» in alto, 24 Box e opzione di test «Forza invio a».</li>
+      </ol>
+      <div class="history-sep">Invio WhatsApp automatico e App</div>
+      <ol class="history-list" start="9">
+        <li><b>v121</b> — Diagnostica dell'apertura della chat nei log.</li>
+        <li><b>v122</b> — «Forza invio a» funziona davvero: il server comunica al motore il destinatario scelto.</li>
+        <li><b>v123–v125</b> — Installatore in un unico file; accanto al titolo compare la versione del motore WhatsApp installata; diagnostica sul campo di ricerca di WhatsApp.</li>
+        <li><b>v126</b> — WhatsApp aggiornato: il numero scritto nel campo di ricerca viene di nuovo riconosciuto.</li>
+        <li><b>v127</b> — Corretto un errore che fermava l'invio subito dopo l'apertura della chat.</li>
+        <li><b>v128</b> — La chat si apre premendo Invio dopo il numero: più semplice e più veloce.</li>
+        <li><b>v129</b> — Gli invii di prova con «Forza invio a» non segnano più la ricevuta come «Inviata». Nasce l'App «Cruscotto Affitti» con l'icona della casetta.</li>
+        <li><b>v130</b> — Durante l'invio le altre finestre Chrome vengono ridotte a icona, così non rubano i tasti a WhatsApp.</li>
+        <li><b>v131</b> — Controllo che la finestra di scelta file sia davvero aperta: niente più testo finito nella barra «Trova».</li>
+        <li><b>v132</b> — Il PDF viene consegnato direttamente a WhatsApp, senza finestra di scelta file; il pulsante «+» viene cercato solo nella barra del messaggio. L'App resta nel Dock con la sua icona.</li>
+        <li><b>v133</b> — Saluti in base all'ora (Buongiorno, Buon pomeriggio, Buonasera) e PDF e testo in un unico messaggio.</li>
+        <li><b>v134</b> — Tolta la riga «A presto»; l'App torna davvero in primo piano quando la clicchi.</li>
+        <li><b>v135–v136</b> — Dopo l'invio il Generatore torna al suo posto, non più ridotto a icona. Versione definitiva.</li>
+        <li><b>v137</b> — Questo pulsante «?» con la storia delle versioni.</li>
+      </ol>
+    </div>
+  </div>
+</div>
 <div class="settings-modal" id="settingsModal" aria-hidden="true">
   <div class="settings-card">
     <div class="settings-header">
@@ -24559,18 +24612,18 @@ backup_dir_if_exists "$LAUNCHER_APP_TARGET" "Launcher_App"
 # (ElencoRicevute) perché questo installer non lo scrive mai.
 log "NON toccato (come da regola): $DATA_DIR"
 
-# --- 3. Compila ed installa il motore WhatsApp v136 -----------------------
+# --- 3. Compila ed installa il motore WhatsApp v137 -----------------------
 
 command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
 
-TMP_SCPT="/tmp/WhatsApp_Engine_v136_$STAMP.scpt"
-osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v136.applescript" 2>>"$INSTALL_LOG" \
-  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v136.applescript. Dettagli in $INSTALL_LOG"
+TMP_SCPT="/tmp/WhatsApp_Engine_v137_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v137.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v137.applescript. Dettagli in $INSTALL_LOG"
 
 cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
   || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
 rm -f "$TMP_SCPT"
-log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v136)"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v137)"
 
 # Scrive un file di versione che il server legge e mostra nel Generatore
 # HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
@@ -24580,9 +24633,9 @@ ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
 INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
 cat > "$ENGINE_VERSION_FILE" <<EOF
 {
-  "version": "v136",
+  "version": "v137",
   "installedAt": "$INSTALLED_AT_HUMAN",
-  "sourceFile": "WhatsApp_Engine_v136.applescript"
+  "sourceFile": "WhatsApp_Engine_v137.applescript"
 }
 EOF
 log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
@@ -24682,8 +24735,8 @@ if [ -n "$HEALTH" ]; then
   log "Server risponde: $HEALTH"
   MSG="Installazione completata.
 
-Motore WhatsApp: v136 (ripristino del Generatore con doppia strada e log)
-Generatore: v120 (con badge versione motore)
+Motore WhatsApp: v137 (pulsante ? con la storia delle versioni)
+Generatore: v137 (con storia delle versioni)
 Server: attivo su http://127.0.0.1:8765
 Launcher: Cruscotto Affitti.app in ~/Applications (icona propria nel Dock)
 
@@ -24694,7 +24747,7 @@ I dati degli affittuari (ElencoRicevute) NON sono stati toccati.
 WhatsApp continua a funzionare come scheda Chrome normale: provalo con
 calma prima di fidartene al 100%."
   log "=== Installazione completata con successo ==="
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v136\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v137\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 else
   log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
   MSG="I file sono stati installati e il backup è in:
@@ -24703,7 +24756,7 @@ $BACKUP_DIR
 Ma il server su 127.0.0.1:8765 non ha ancora risposto.
 Prova a riavviare il Mac, oppure controlla il log:
 /tmp/Cruscotto_Affitti_Autostart.log"
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v136\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v137\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 fi
 
 log "Log completo di questa installazione: $INSTALL_LOG"

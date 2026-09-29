@@ -230,7 +230,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v134.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v135.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -401,6 +401,13 @@ Su macOS si possono compilare in .scpt con:
      permesso Accessibilità: macOS mostrerebbe un avviso ogni volta).
    Motore WhatsApp identico a v133 (cambia solo il numero di versione).
 
+6s. v135 — v134 CONFERMATA da Mario (tutto ok, invio velocissimo).
+   Bug: a fine invio il Generatore restava ridotto a icona. Causa in
+   restoreChromeWindows: "repeat with wid in savedIDs" dà un riferimento,
+   non il numero, quindi "first window whose id is wid" non trovava mai la
+   finestra (errore assorbito dal try). Fix: "contents of widRef"; dopo il
+   ripristino il Generatore viene riportato in primo piano.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"
@@ -418,7 +425,7 @@ Su macOS si possono compilare in .scpt con:
    decodificata dall'installer sia byte-per-byte identica all'originale.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v134.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v135.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer Cruscotto Affitti v134 — TUTTO-IN-UNO — per il Mac della Mammetta
+# Installer Cruscotto Affitti v135 — TUTTO-IN-UNO — per il Mac della Mammetta
 # (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
 # da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
 #
 # Cosa fa:
 #   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
 #   2. Estrae dai propri dati incorporati e installa:
-#      - WhatsApp_Engine.scpt (compilato da v134 — messaggio senza A presto, App che resta in primo piano)
+#      - WhatsApp_Engine.scpt (compilato da v135 — il Generatore torna com era dopo l invio)
 #      - Generatore_Ricevute_Condominio.html (v120, con badge versione motore)
 #      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
 #      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
@@ -57,7 +57,7 @@ fail() {
   exit 1
 }
 
-log "=== Installer Cruscotto Affitti v134 (tutto-in-uno) avviato ==="
+log "=== Installer Cruscotto Affitti v135 (tutto-in-uno) avviato ==="
 
 # --- 0. Controlli di base -----------------------------------------------
 
@@ -79,7 +79,7 @@ log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
 
 # --- 1. Estrae i file incorporati in questo installer ---------------------
 
-cat > "$PAYLOAD_DIR/WhatsApp_Engine_v134.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_v135.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
 property dataDir : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute"
 property pointerPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Ricevuta_Da_Inviare.txt"
 property messagePath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Messaggio_Da_Inviare.txt"
@@ -1337,22 +1337,42 @@ on minimizeOtherChromeWindows()
 end minimizeOtherChromeWindows
 
 on restoreChromeWindows(savedIDs)
+	-- v135: "repeat with wid in lista" dà un RIFERIMENTO ("item 1 of ..."),
+	-- non il numero: "whose id is wid" non trovava mai la finestra e l'errore
+	-- veniva assorbito, quindi il Generatore restava ridotto a icona.
+	-- Serve "contents of". Dopo il ripristino riportiamo davanti il
+	-- Generatore, così la Mammetta ritrova tutto com'era.
+	set generatoreID to missing value
 	try
 		tell application "Google Chrome"
-			repeat with wid in savedIDs
+			repeat with widRef in savedIDs
+				set wid to contents of widRef
 				try
-					set minimized of (first window whose id is wid) to false
+					set w to (first window whose id is wid)
+					set minimized of w to false
+					try
+						if (URL of active tab of w) contains "Generatore_Ricevute_Condominio" then set generatoreID to wid
+					end try
 				end try
 			end repeat
 		end tell
 	end try
+	if generatoreID is not missing value then
+		delay 0.3
+		try
+			tell application "Google Chrome"
+				activate
+				set index of (first window whose id is generatoreID) to 1
+			end tell
+		end try
+	end if
 end restoreChromeWindows
 
 on run
 	set minimizedWindowIDs to {}
 	try
 		do shell script "/usr/bin/touch " & quoted form of runLogPath
-		my appendLog("=== Avvio Engine WhatsApp v134 ===")
+		my appendLog("=== Avvio Engine WhatsApp v135 ===")
 
 		set pdfName to my readTextFile(pointerPath)
 		set messageText to my readTextFile(messagePath)
@@ -24510,18 +24530,18 @@ backup_dir_if_exists "$LAUNCHER_APP_TARGET" "Launcher_App"
 # (ElencoRicevute) perché questo installer non lo scrive mai.
 log "NON toccato (come da regola): $DATA_DIR"
 
-# --- 3. Compila ed installa il motore WhatsApp v134 -----------------------
+# --- 3. Compila ed installa il motore WhatsApp v135 -----------------------
 
 command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
 
-TMP_SCPT="/tmp/WhatsApp_Engine_v134_$STAMP.scpt"
-osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v134.applescript" 2>>"$INSTALL_LOG" \
-  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v134.applescript. Dettagli in $INSTALL_LOG"
+TMP_SCPT="/tmp/WhatsApp_Engine_v135_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v135.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v135.applescript. Dettagli in $INSTALL_LOG"
 
 cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
   || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
 rm -f "$TMP_SCPT"
-log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v134)"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v135)"
 
 # Scrive un file di versione che il server legge e mostra nel Generatore
 # HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
@@ -24531,9 +24551,9 @@ ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
 INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
 cat > "$ENGINE_VERSION_FILE" <<EOF
 {
-  "version": "v134",
+  "version": "v135",
   "installedAt": "$INSTALLED_AT_HUMAN",
-  "sourceFile": "WhatsApp_Engine_v134.applescript"
+  "sourceFile": "WhatsApp_Engine_v135.applescript"
 }
 EOF
 log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
@@ -24633,7 +24653,7 @@ if [ -n "$HEALTH" ]; then
   log "Server risponde: $HEALTH"
   MSG="Installazione completata.
 
-Motore WhatsApp: v134 (messaggio senza A presto, App che resta in primo piano)
+Motore WhatsApp: v135 (il Generatore torna com era dopo l invio)
 Generatore: v120 (con badge versione motore)
 Server: attivo su http://127.0.0.1:8765
 Launcher: Cruscotto Affitti.app in ~/Applications (icona propria nel Dock)
@@ -24645,7 +24665,7 @@ I dati degli affittuari (ElencoRicevute) NON sono stati toccati.
 WhatsApp continua a funzionare come scheda Chrome normale: provalo con
 calma prima di fidartene al 100%."
   log "=== Installazione completata con successo ==="
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v134\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v135\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 else
   log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
   MSG="I file sono stati installati e il backup è in:
@@ -24654,7 +24674,7 @@ $BACKUP_DIR
 Ma il server su 127.0.0.1:8765 non ha ancora risposto.
 Prova a riavviare il Mac, oppure controlla il log:
 /tmp/Cruscotto_Affitti_Autostart.log"
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v134\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v135\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 fi
 
 log "Log completo di questa installazione: $INSTALL_LOG"

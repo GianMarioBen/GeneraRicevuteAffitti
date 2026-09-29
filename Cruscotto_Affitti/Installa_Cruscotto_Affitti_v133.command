@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer Cruscotto Affitti v132 — TUTTO-IN-UNO — per il Mac della Mammetta
+# Installer Cruscotto Affitti v133 — TUTTO-IN-UNO — per il Mac della Mammetta
 # (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
 # da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
 #
 # Cosa fa:
 #   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
 #   2. Estrae dai propri dati incorporati e installa:
-#      - WhatsApp_Engine.scpt (compilato da v132 — PDF allegato senza selettore file macOS)
+#      - WhatsApp_Engine.scpt (compilato da v133 — PDF + testo in un unico messaggio, saluti secondo l ora)
 #      - Generatore_Ricevute_Condominio.html (v120, con badge versione motore)
 #      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
 #      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
@@ -57,7 +57,7 @@ fail() {
   exit 1
 }
 
-log "=== Installer Cruscotto Affitti v132 (tutto-in-uno) avviato ==="
+log "=== Installer Cruscotto Affitti v133 (tutto-in-uno) avviato ==="
 
 # --- 0. Controlli di base -----------------------------------------------
 
@@ -79,7 +79,7 @@ log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
 
 # --- 1. Estrae i file incorporati in questo installer ---------------------
 
-cat > "$PAYLOAD_DIR/WhatsApp_Engine_v132.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_v133.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
 property dataDir : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute"
 property pointerPath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Ricevuta_Da_Inviare.txt"
 property messagePath : "/Users/bless/Archivio/Appart/Ricevute Affittuari/ElencoRicevute/Messaggio_Da_Inviare.txt"
@@ -937,7 +937,7 @@ on legacyPickerAttach(pdfPath)
 	return "OK"
 end legacyPickerAttach
 
-on attachAndSendPdf(pdfPath)
+on attachAndSendPdf(pdfPath, messageText)
 	set pdfNameOnly to do shell script "/usr/bin/basename " & quoted form of pdfPath
 	set safePdfName to my replaceText("'", "\\'", pdfNameOnly)
 
@@ -1044,6 +1044,49 @@ on attachAndSendPdf(pdfPath)
 	set r to my jsTry(my pdfJS(safePdfName, "const fresh=hits(true).filter(e=>!e.hasAttribute('data-cruscotto-old'));fresh.forEach(e=>e.setAttribute('data-cruscotto-preview','1'));return 'ANTEPRIMA '+fresh.length;"))
 	my appendLog("Elementi dell'anteprima: " & r)
 
+	-- v133: il testo va come DIDASCALIA del PDF, così arriva un unico
+	-- messaggio (PDF + testo). Se la didascalia non riesce la ripulisco e
+	-- il testo verrà mandato dopo, come messaggio separato (metodo di prima).
+	set captionUsed to false
+	if messageText is not "" then
+		set r to my jsTry("(function(){try{" & jsVis & "const prev=[...document.querySelectorAll('[data-cruscotto-preview]')].filter(e=>e.isConnected&&vis(e));if(!prev.length)return 'NOPREVIEW';const main=document.querySelector('#main');const footer=main?main.querySelector('footer'):null;const ok=e=>vis(e)&&!(footer&&footer.contains(e))&&!e.closest('#side');let p=prev[0];for(let d=0;d<16&&p;d++,p=p.parentElement){const c=[...p.querySelectorAll('[contenteditable=true],[role=textbox]')].filter(ok);if(c.length){const t=c[c.length-1];document.querySelectorAll('[data-cruscotto-caption]').forEach(e=>e.removeAttribute('data-cruscotto-caption'));t.setAttribute('data-cruscotto-caption','1');t.focus();try{t.click()}catch(x){}return 'OK livello='+d}}return 'NOCAPTION'}catch(x){return 'ERR '+x}})()")
+		my appendLog("Campo didascalia dell'anteprima: " & r)
+		if r starts with "OK" then
+			set the clipboard to messageText
+			delay 0.2
+			tell application "System Events"
+				tell process "Google Chrome"
+					set frontmost to true
+					keystroke "v" using {command down}
+				end tell
+			end tell
+			set capState to ""
+			repeat with attempt from 1 to 20
+				delay 0.15
+				set capState to my jsTry("(function(){try{const c=document.querySelector('[data-cruscotto-caption]');if(!c)return 'NONE';const t=(c.innerText||c.textContent||'');return t.indexOf('Benetti')>=0?'OK':(t.trim().length?'PARTIAL':'EMPTY')}catch(x){return 'ERR'}})()")
+				if capState is "OK" then exit repeat
+			end repeat
+			if capState is "OK" then
+				set captionUsed to true
+				my appendLog("Testo inserito come didascalia del PDF: verrà inviato un unico messaggio.")
+			else
+				my appendLog("Didascalia non riuscita (" & capState & "): la ripulisco e mando il testo come messaggio separato.")
+				if capState is "PARTIAL" then
+					my jsTry("(function(){try{const c=document.querySelector('[data-cruscotto-caption]');if(c){c.focus()}return 'OK'}catch(x){return 'ERR'}})()")
+					tell application "System Events"
+						tell process "Google Chrome"
+							set frontmost to true
+							keystroke "a" using {command down}
+							delay 0.1
+							key code 51
+						end tell
+					end tell
+					delay 0.3
+				end if
+			end if
+		end if
+	end if
+
 	set sendClicked to false
 	repeat with attempt from 1 to 35
 		set r to my jsTry("(function(){try{" & jsVis & "const prev=[...document.querySelectorAll('[data-cruscotto-preview]')].filter(e=>e.isConnected&&vis(e));if(!prev.length)return 'NOPREVIEW';const isSend=e=>{const l=((e.getAttribute('aria-label')||'')+'|'+(e.getAttribute('title')||'')).toLowerCase();const ic=(e.getAttribute('data-icon')||'').toLowerCase();return ic.indexOf('send')>=0||l.split('|').some(p=>{p=p.trim();return p.indexOf('invia')===0||p.indexOf('send')===0})};let p=prev[0];for(let d=0;d<16&&p;d++,p=p.parentElement){const bs=[...p.querySelectorAll('button,[role=button],[aria-label],[title],[data-icon]')].filter(vis).filter(isSend);if(bs.length){const b=bs[bs.length-1];const t=b.closest('button,[role=button]')||b;t.setAttribute('data-cruscotto-pdf-send','1');t.click();return 'OK livello='+d+' '+(t.getAttribute('aria-label')||'')+'/'+(b.getAttribute('data-icon')||'')}}return 'WAIT'}catch(x){return 'WAIT'}})()")
@@ -1092,6 +1135,7 @@ on attachAndSendPdf(pdfPath)
 	end if
 
 	my appendLog("PDF REALMENTE inviato e verificato nella chat: " & pdfNameOnly)
+	if captionUsed then return "OK_CAPTION"
 	return "OK"
 end attachAndSendPdf
 
@@ -1126,7 +1170,8 @@ on performSend(pdfPath, messageText, recipientName, recipientPhone)
 	my focusWhatsAppTab()
 	delay 0.35
 
-	set attachResult to my attachAndSendPdf(pdfPath)
+	set attachResult to my attachAndSendPdf(pdfPath, messageText)
+	if attachResult is "OK_CAPTION" then return "SUCCESS"
 	if attachResult is not "OK" then return attachResult
 
 	-- Solo dopo la verifica reale del PDF attendiamo il composer.
@@ -1307,7 +1352,7 @@ on run
 	set minimizedWindowIDs to {}
 	try
 		do shell script "/usr/bin/touch " & quoted form of runLogPath
-		my appendLog("=== Avvio Engine WhatsApp v132 ===")
+		my appendLog("=== Avvio Engine WhatsApp v133 ===")
 
 		set pdfName to my readTextFile(pointerPath)
 		set messageText to my readTextFile(messagePath)
@@ -3540,13 +3585,17 @@ function buildWhatsAppMessageFromSaved(saved){
   const unitText=whatsappUnitText(saved?.unita,saved?.tipo);
   const periodText=whatsappPeriodPhrase(saved);
 
+  const h=new Date().getHours();
+  const saluto=h<13?'Buongiorno':(h<18?'Buon pomeriggio':'Buonasera');
+  const congedo=h<13?'Buona giornata':(h<18?'Buona continuazione di giornata':'Buona serata');
+
   return [
-    'Buona sera',
+    saluto,
     `In allegato la ricevuta dell'affitto per il ${unitText} relativa al ${periodText}`,
     '',
     'Grazie mille',
     '',
-    'Buona serata',
+    congedo,
     '',
     'A presto',
     '',
@@ -24449,18 +24498,18 @@ backup_dir_if_exists "$LAUNCHER_APP_TARGET" "Launcher_App"
 # (ElencoRicevute) perché questo installer non lo scrive mai.
 log "NON toccato (come da regola): $DATA_DIR"
 
-# --- 3. Compila ed installa il motore WhatsApp v132 -----------------------
+# --- 3. Compila ed installa il motore WhatsApp v133 -----------------------
 
 command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
 
-TMP_SCPT="/tmp/WhatsApp_Engine_v132_$STAMP.scpt"
-osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v132.applescript" 2>>"$INSTALL_LOG" \
-  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v132.applescript. Dettagli in $INSTALL_LOG"
+TMP_SCPT="/tmp/WhatsApp_Engine_v133_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_v133.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_v133.applescript. Dettagli in $INSTALL_LOG"
 
 cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
   || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
 rm -f "$TMP_SCPT"
-log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v132)"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da v133)"
 
 # Scrive un file di versione che il server legge e mostra nel Generatore
 # HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
@@ -24470,9 +24519,9 @@ ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
 INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
 cat > "$ENGINE_VERSION_FILE" <<EOF
 {
-  "version": "v132",
+  "version": "v133",
   "installedAt": "$INSTALLED_AT_HUMAN",
-  "sourceFile": "WhatsApp_Engine_v132.applescript"
+  "sourceFile": "WhatsApp_Engine_v133.applescript"
 }
 EOF
 log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
@@ -24572,7 +24621,7 @@ if [ -n "$HEALTH" ]; then
   log "Server risponde: $HEALTH"
   MSG="Installazione completata.
 
-Motore WhatsApp: v132 (PDF allegato senza selettore file macOS)
+Motore WhatsApp: v133 (PDF + testo in un unico messaggio, saluti secondo l ora)
 Generatore: v120 (con badge versione motore)
 Server: attivo su http://127.0.0.1:8765
 Launcher: Cruscotto Affitti.app in ~/Applications (icona propria nel Dock)
@@ -24584,7 +24633,7 @@ I dati degli affittuari (ElencoRicevute) NON sono stati toccati.
 WhatsApp continua a funzionare come scheda Chrome normale: provalo con
 calma prima di fidartene al 100%."
   log "=== Installazione completata con successo ==="
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v132\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v133\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 else
   log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
   MSG="I file sono stati installati e il backup è in:
@@ -24593,7 +24642,7 @@ $BACKUP_DIR
 Ma il server su 127.0.0.1:8765 non ha ancora risposto.
 Prova a riavviare il Mac, oppure controlla il log:
 /tmp/Cruscotto_Affitti_Autostart.log"
-  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v132\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione v133\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
 fi
 
 log "Log completo di questa installazione: $INSTALL_LOG"

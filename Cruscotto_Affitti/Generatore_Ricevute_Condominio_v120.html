@@ -2176,13 +2176,17 @@ function buildWhatsAppMessageFromSaved(saved){
   const unitText=whatsappUnitText(saved?.unita,saved?.tipo);
   const periodText=whatsappPeriodPhrase(saved);
 
+  const h=new Date().getHours();
+  const saluto=h<13?'Buongiorno':(h<18?'Buon pomeriggio':'Buonasera');
+  const congedo=h<13?'Buona giornata':(h<18?'Buona continuazione di giornata':'Buona serata');
+
   return [
-    'Buona sera',
+    saluto,
     `In allegato la ricevuta dell'affitto per il ${unitText} relativa al ${periodText}`,
     '',
     'Grazie mille',
     '',
-    'Buona serata',
+    congedo,
     '',
     'A presto',
     '',

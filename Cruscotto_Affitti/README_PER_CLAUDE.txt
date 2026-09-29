@@ -230,7 +230,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v132.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v133.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -373,6 +373,24 @@ Su macOS si possono compilare in .scpt con:
    mai doppioni; si chiude da solo quando la finestra del Generatore viene
    chiusa. L'installer chiude la vecchia copia (pkill) prima di sostituirla.
 
+6p. v132 CONFERMATA da Mario: invio funzionante sia dal Generatore in una
+   scheda Chrome sia dall'App (launcher). Stesso HTML, server e motore per
+   entrambe le vie: ogni correzione vale per tutte e due.
+
+6q. v133 — saluti secondo l'ora + PDF e testo in un unico messaggio
+   - Generatore HTML (buildWhatsAppMessageFromSaved): saluto e congedo in
+     base all'ora di invio: <13 "Buongiorno"/"Buona giornata"; 13-18
+     "Buon pomeriggio"/"Buona continuazione di giornata"; >=18
+     "Buonasera"/"Buona serata".
+   - WhatsApp_Engine_v133: nell'anteprima del PDF il testo viene incollato
+     come DIDASCALIA (campo modificabile vicino all'anteprima, mai il campo
+     messaggio normale) e verificato (deve contenere "Benetti"): arriva un
+     unico messaggio PDF+testo e la fase "messaggio separato" viene
+     saltata (attachAndSendPdf ritorna OK_CAPTION -> SUCCESS). Se la
+     didascalia non riesce viene ripulita e si torna al metodo precedente
+     (testo come secondo messaggio). Verificato in Chromium sulla pagina
+     di prova.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"
@@ -390,7 +408,7 @@ Su macOS si possono compilare in .scpt con:
    decodificata dall'installer sia byte-per-byte identica all'originale.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v132.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v133.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

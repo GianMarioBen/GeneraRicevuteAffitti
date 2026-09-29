@@ -230,7 +230,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v133.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v134.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -391,6 +391,16 @@ Su macOS si possono compilare in .scpt con:
      (testo come secondo messaggio). Verificato in Chromium sulla pagina
      di prova.
 
+6r. v134 — v133 CONFERMATA da Mario (un unico messaggio, saluti ok).
+   - Messaggio: tolta la riga "A presto" e la riga vuota che la seguiva.
+   - Launcher: clic sull'icona nel Dock -> il Generatore tornava davanti un
+     attimo e poi Chrome lo ricopriva. Causa: prima si portava davanti la
+     finestra e POI "activate", che rimetteva in cima l'ultima finestra
+     Chrome usata. Ora: activate, poi set index 1, e un secondo set index
+     dopo mezzo secondo. Niente System Events nel launcher (non ha il
+     permesso Accessibilità: macOS mostrerebbe un avviso ogni volta).
+   Motore WhatsApp identico a v133 (cambia solo il numero di versione).
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"
@@ -408,7 +418,7 @@ Su macOS si possono compilare in .scpt con:
    decodificata dall'installer sia byte-per-byte identica all'originale.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v133.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v134.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

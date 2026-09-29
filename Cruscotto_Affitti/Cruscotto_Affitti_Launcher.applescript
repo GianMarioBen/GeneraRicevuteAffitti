@@ -93,12 +93,26 @@ end generatoreWindowID
 on bringGeneratoreToFront()
 	set wid to my generatoreWindowID()
 	if wid is missing value or wid is "ERR" then return false
+	-- Prima si attiva Chrome e SOLO DOPO si porta davanti la finestra del
+	-- Generatore: con l'ordine inverso "activate" rimetteva in primo piano
+	-- l'ultima finestra Chrome usata, che copriva subito il Generatore.
+	-- (Niente System Events qui: il launcher non ha il permesso Accessibilità
+	-- e macOS mostrerebbe ogni volta un avviso alla Mammetta.)
 	try
 		tell application "Google Chrome"
 			set w to (first window whose id is wid)
 			set minimized of w to false
-			set index of w to 1
 			activate
+		end tell
+		delay 0.3
+		tell application "Google Chrome"
+			set index of (first window whose id is wid) to 1
+		end tell
+		delay 0.4
+		-- secondo passaggio: se nel frattempo Chrome ha rimesso davanti
+		-- un'altra finestra, il Generatore torna comunque in cima
+		tell application "Google Chrome"
+			set index of (first window whose id is wid) to 1
 		end tell
 		return true
 	on error

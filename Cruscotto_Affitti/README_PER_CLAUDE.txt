@@ -230,7 +230,7 @@ Su macOS si possono compilare in .scpt con:
    endpoint), utile per verificare endpoint /api/fs/* e /api/whatsapp/prepare
    effettivamente in uso su questo Mac.
 
-8. Installa_Cruscotto_Affitti_v135.command (INSTALLER — TUTTO-IN-UNO)
+8. Installa_Cruscotto_Affitti_v136.command (INSTALLER — TUTTO-IN-UNO)
    Un solo file, autosufficiente: tutti i contenuti sopra (HTML, .scpt,
    server, runner, plist) sono incorporati dentro il .command stesso —
    non serve scaricare nient'altro. Doppio-click sul Mac della Mammetta
@@ -408,6 +408,13 @@ Su macOS si possono compilare in .scpt con:
    finestra (errore assorbito dal try). Fix: "contents of widRef"; dopo il
    ripristino il Generatore viene riportato in primo piano.
 
+6t. v136 — v135 NON ha risolto: il Generatore resta ridotto a icona.
+   restoreChromeWindows ora logga, per ogni finestra, se Chrome la trova e
+   se dopo il comando risulta ancora minimizzata; poi una seconda strada
+   indipendente: System Events (AXMinimized=false) su ogni finestra Chrome
+   ancora ridotta a icona, e AXRaise sul Generatore. Il motore gira
+   nell'Helper con permesso Accessibilità, quindi nessun avviso.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"
@@ -425,7 +432,7 @@ Su macOS si possono compilare in .scpt con:
    decodificata dall'installer sia byte-per-byte identica all'originale.
 
 PROSSIMO PASSO SUL MAC DELLA MADRE DI MARIO:
-1. Scaricare SOLO Installa_Cruscotto_Affitti_v135.command (nessun altro
+1. Scaricare SOLO Installa_Cruscotto_Affitti_v136.command (nessun altro
    file, nessuno zip: è autosufficiente).
 2. Se il Mac toglie il permesso di esecuzione o Gatekeeper blocca il
    file "sviluppatore non identificato": da Terminale,

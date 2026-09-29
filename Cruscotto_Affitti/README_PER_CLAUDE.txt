@@ -428,6 +428,12 @@ Su macOS si possono compilare in .scpt con:
    Etichetta del Generatore aggiornata a v137. Motore identico a v136.
    NOTA: a ogni nuova versione aggiungere una voce in #historyModal.
 
+6v. v138 — la storia delle versioni è in ordine inverso: la più recente in
+   cima. Prima la sezione "Invio WhatsApp automatico e App", poi "Le basi
+   del progetto"; le liste usano <ol reversed start=N>, quindi la
+   numerazione scende (23 -> 1). NOTA: le nuove voci vanno IN CIMA alla
+   prima lista, aumentando start di 1. Motore identico a v137.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"

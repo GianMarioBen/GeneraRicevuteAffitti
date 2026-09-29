@@ -828,7 +828,7 @@
 <div class="app">
   <div class="panel">
     <div class="app-title-row">
-      <h1>Generatore ricevute <span style="font-size:12px;font-weight:400;color:#666">v137</span> <span id="whatsappEngineBadge" style="font-size:11px;font-weight:400;color:#888" title="Versione del motore WhatsApp installata sul server locale"></span></h1>
+      <h1>Generatore ricevute <span style="font-size:12px;font-weight:400;color:#666">v138</span> <span id="whatsappEngineBadge" style="font-size:11px;font-weight:400;color:#888" title="Versione del motore WhatsApp installata sul server locale"></span></h1>
       <div class="title-actions">
         <button type="button" class="advanced-toggle compact-toggle" id="advancedToggleBtn" onclick="toggleAdvancedFields()">
           Mostra più campi
@@ -3925,33 +3925,34 @@ if(document.readyState==='loading'){
       <button type="button" class="settings-close" onclick="closeHistory()">Chiudi</button>
     </div>
     <div class="settings-content">
-      <div class="history-sep">Le basi del progetto</div>
-      <ol class="history-list">
-        <li><b>v89</b> — Server locale sul Mac (indirizzo 127.0.0.1:8765): il Generatore legge e scrive la cartella ElencoRicevute, cosa che Chrome su High Sierra non riusciva a fare da solo.</li>
-        <li><b>v97</b> — Invio WhatsApp attraverso il server locale e un'app Helper autorizzata da macOS.</li>
-        <li><b>v104</b> — L'app Helper diventa un «guscio» che non si modifica più: le correzioni vanno solo nel motore WhatsApp, così non si perde il permesso di Accessibilità.</li>
-        <li><b>v105</b> — Primo invio completo riuscito da una scheda Chrome: PDF allegato e messaggio.</li>
-        <li><b>v114</b> — Il destinatario viene cercato in WhatsApp per numero di telefono, con la scorciatoia Cmd+Ctrl+/.</li>
-        <li><b>v115</b> — Colonna NUMERO WHATSAPP negli affittuari; il numero viene usato così com'è, senza aggiungere il 39.</li>
-        <li><b>v118</b> — Il server parte da solo all'accensione del Mac.</li>
-        <li><b>v120</b> — Interfaccia semplificata con Passo 1–4, «Nuova ricevuta» in alto, 24 Box e opzione di test «Forza invio a».</li>
-      </ol>
       <div class="history-sep">Invio WhatsApp automatico e App</div>
-      <ol class="history-list" start="9">
-        <li><b>v121</b> — Diagnostica dell'apertura della chat nei log.</li>
-        <li><b>v122</b> — «Forza invio a» funziona davvero: il server comunica al motore il destinatario scelto.</li>
-        <li><b>v123–v125</b> — Installatore in un unico file; accanto al titolo compare la versione del motore WhatsApp installata; diagnostica sul campo di ricerca di WhatsApp.</li>
-        <li><b>v126</b> — WhatsApp aggiornato: il numero scritto nel campo di ricerca viene di nuovo riconosciuto.</li>
-        <li><b>v127</b> — Corretto un errore che fermava l'invio subito dopo l'apertura della chat.</li>
-        <li><b>v128</b> — La chat si apre premendo Invio dopo il numero: più semplice e più veloce.</li>
-        <li><b>v129</b> — Gli invii di prova con «Forza invio a» non segnano più la ricevuta come «Inviata». Nasce l'App «Cruscotto Affitti» con l'icona della casetta.</li>
-        <li><b>v130</b> — Durante l'invio le altre finestre Chrome vengono ridotte a icona, così non rubano i tasti a WhatsApp.</li>
-        <li><b>v131</b> — Controllo che la finestra di scelta file sia davvero aperta: niente più testo finito nella barra «Trova».</li>
-        <li><b>v132</b> — Il PDF viene consegnato direttamente a WhatsApp, senza finestra di scelta file; il pulsante «+» viene cercato solo nella barra del messaggio. L'App resta nel Dock con la sua icona.</li>
-        <li><b>v133</b> — Saluti in base all'ora (Buongiorno, Buon pomeriggio, Buonasera) e PDF e testo in un unico messaggio.</li>
-        <li><b>v134</b> — Tolta la riga «A presto»; l'App torna davvero in primo piano quando la clicchi.</li>
-        <li><b>v135–v136</b> — Dopo l'invio il Generatore torna al suo posto, non più ridotto a icona. Versione definitiva.</li>
+      <ol class="history-list" reversed start="23">
+        <li><b>v138</b> — La storia delle versioni parte dalla più recente: le novità sono in cima.</li>
         <li><b>v137</b> — Questo pulsante «?» con la storia delle versioni.</li>
+        <li><b>v135–v136</b> — Dopo l'invio il Generatore torna al suo posto, non più ridotto a icona. Versione definitiva.</li>
+        <li><b>v134</b> — Tolta la riga «A presto»; l'App torna davvero in primo piano quando la clicchi.</li>
+        <li><b>v133</b> — Saluti in base all'ora (Buongiorno, Buon pomeriggio, Buonasera) e PDF e testo in un unico messaggio.</li>
+        <li><b>v132</b> — Il PDF viene consegnato direttamente a WhatsApp, senza finestra di scelta file; il pulsante «+» viene cercato solo nella barra del messaggio. L'App resta nel Dock con la sua icona.</li>
+        <li><b>v131</b> — Controllo che la finestra di scelta file sia davvero aperta: niente più testo finito nella barra «Trova».</li>
+        <li><b>v130</b> — Durante l'invio le altre finestre Chrome vengono ridotte a icona, così non rubano i tasti a WhatsApp.</li>
+        <li><b>v129</b> — Gli invii di prova con «Forza invio a» non segnano più la ricevuta come «Inviata». Nasce l'App «Cruscotto Affitti» con l'icona della casetta.</li>
+        <li><b>v128</b> — La chat si apre premendo Invio dopo il numero: più semplice e più veloce.</li>
+        <li><b>v127</b> — Corretto un errore che fermava l'invio subito dopo l'apertura della chat.</li>
+        <li><b>v126</b> — WhatsApp aggiornato: il numero scritto nel campo di ricerca viene di nuovo riconosciuto.</li>
+        <li><b>v123–v125</b> — Installatore in un unico file; accanto al titolo compare la versione del motore WhatsApp installata; diagnostica sul campo di ricerca di WhatsApp.</li>
+        <li><b>v122</b> — «Forza invio a» funziona davvero: il server comunica al motore il destinatario scelto.</li>
+        <li><b>v121</b> — Diagnostica dell'apertura della chat nei log.</li>
+      </ol>
+      <div class="history-sep">Le basi del progetto</div>
+      <ol class="history-list" reversed start="8">
+        <li><b>v120</b> — Interfaccia semplificata con Passo 1–4, «Nuova ricevuta» in alto, 24 Box e opzione di test «Forza invio a».</li>
+        <li><b>v118</b> — Il server parte da solo all'accensione del Mac.</li>
+        <li><b>v115</b> — Colonna NUMERO WHATSAPP negli affittuari; il numero viene usato così com'è, senza aggiungere il 39.</li>
+        <li><b>v114</b> — Il destinatario viene cercato in WhatsApp per numero di telefono, con la scorciatoia Cmd+Ctrl+/.</li>
+        <li><b>v105</b> — Primo invio completo riuscito da una scheda Chrome: PDF allegato e messaggio.</li>
+        <li><b>v104</b> — L'app Helper diventa un «guscio» che non si modifica più: le correzioni vanno solo nel motore WhatsApp, così non si perde il permesso di Accessibilità.</li>
+        <li><b>v97</b> — Invio WhatsApp attraverso il server locale e un'app Helper autorizzata da macOS.</li>
+        <li><b>v89</b> — Server locale sul Mac (indirizzo 127.0.0.1:8765): il Generatore legge e scrive la cartella ElencoRicevute, cosa che Chrome su High Sierra non riusciva a fare da solo.</li>
       </ol>
     </div>
   </div>

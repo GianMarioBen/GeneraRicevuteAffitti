@@ -415,6 +415,12 @@ Su macOS si possono compilare in .scpt con:
    ancora ridotta a icona, e AXRaise sul Generatore. Il motore gira
    nell'Helper con permesso Accessibilità, quindi nessun avviso.
 
+*** VERSIONE DEFINITIVA RILASCIATA: v136 (confermata da Mario) ***
+   Invio WhatsApp completo e funzionante in entrambe le modalità:
+   Generatore in una scheda Chrome oppure App "Cruscotto Affitti" con
+   icona propria nel Dock. Se in futuro WhatsApp Web cambiasse di nuovo,
+   ripartire da qui con il solito metodo: prima i log, poi il fix mirato.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"

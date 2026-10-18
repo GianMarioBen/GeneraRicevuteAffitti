@@ -531,6 +531,33 @@ Su macOS si possono compilare in .scpt con:
      chmod +x ~/Downloads/Installa_Cruscotto_Affitti_vNNN.command; xattr -c ~/Downloads/Installa_Cruscotto_Affitti_vNNN.command; ~/Downloads/Installa_Cruscotto_Affitti_vNNN.command
    (xattr -c non dà errore se non ci sono attributi; i ";" non bloccano.)
 
+7a. v141 — numeri WhatsApp forniti da Mario (18/10/2026, dal suo gestionale)
+   Regola di Mario: "usa solo quelli mancanti".
+   - Appartamenti: APARTMENT_PHONES_V141 nell'HTML + fillMissingApartmentPhonesV141(),
+     chiamata in loadTenantsFile dopo syncBoxTenantsV110. Riempie SOLO i
+     telefoni vuoti; l'appartamento si riconosce da via (TRIESTE n. 1-11,
+     BOSCO A/B, SORDIO) + unità, e serve almeno una parola del nome in
+     comune (se è cambiato l'inquilino il numero NON viene assegnato).
+     Senza numero nella lista di Mario: App 7 (SALAHELDIN) e Bosco A (EL SAYED).
+   - Box: in BOX_TENANTS_V107 mancava solo il Box 12 (HORDIICHUK): messo
+     3402471686 (Mario ha scritto +393402471686: stesso numero, salvato senza
+     +39 come tutti gli altri, che funzionano; è anche il numero del Box 14,
+     "ci paga Michele").
+   - DA CHIARIRE CON MARIO (non toccati): Box 02 nel Generatore è CHAFAI
+     MABROUK 3391180787 (stesso numero del Box 01!), per Mario è KHALFA
+     MOHAMED ALI B.TOUHAMI 3384591056; Box 17 nel Generatore è ANIME MOHAMED
+     3886954490, per Mario è MELLAK ABDELKRIM 3407667604. Attenzione:
+     syncBoxTenantsV110 IMPONE i dati di BOX_TENANTS_V107 a ogni avvio,
+     quindi una correzione fatta a mano in SetUp sui Box viene annullata:
+     i Box si correggono solo nell'HTML.
+   - Notare: App 9 (FATHALLA) ha lo stesso numero del Box 22 (IBRAHIM
+     ANTAR) 3891747429, così nella lista di Mario.
+   PROVE NEL REPO: Cruscotto_Affitti/test/ (setup.sh + test_v140.js 23 prove
+   + test_v141.js 17 prove), server reale su dati finti. Uso:
+     NODE_PATH=$(npm root -g) node Cruscotto_Affitti/test/test_v141.js
+   Attenzione ai processi orfani (server/Chromium di prove interrotte):
+   setup.sh si ferma se la porta 8765 è già occupata.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"

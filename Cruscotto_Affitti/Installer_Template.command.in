@@ -1,0 +1,486 @@
+#!/bin/bash
+# Installer Cruscotto Affitti @@VER@@ — TUTTO-IN-UNO — per il Mac della Mammetta
+# (bless, High Sierra 10.13.6). Un solo file, nessuno zip, nessun altro file
+# da scaricare a parte: tutti i contenuti sono incorporati qui dentro.
+#
+# GENERATO da build_installer.py a partire da Installer_Template.command.in:
+# per una nuova versione modificare il modello o i sorgenti e rigenerare,
+# non questo file.
+#
+# Cosa fa:
+#   0. Scrive sulla Scrivania una DIAGNOSI (Diagnosi_Cruscotto_Affitti.txt)
+#      con quello che trova PRIMA di toccare qualsiasi cosa: app presenti,
+#      server, motore, Dock e ultime righe dei log WhatsApp.
+#   1. Fa un BACKUP con data/ora di tutto quello che sta per sostituire.
+#   2. Estrae dai propri dati incorporati e installa:
+#      - WhatsApp_Engine.scpt (compilato da @@VER@@ — @@DESC@@)
+#      - Generatore_Ricevute_Condominio.html (con badge versione motore)
+#      - Cruscotto_Affitti_Server.py (con endpoint /api/health esteso)
+#      - Avvia_Cruscotto_Affitti_Server.sh (runner del LaunchAgent)
+#      - com.letmar.cruscottoaffitti.server.plist (LaunchAgent)
+#      - ~/Applications/Cruscotto Affitti.app (launcher: apre SOLO il
+#        Generatore come finestra-app Chrome dedicata, con icona propria;
+#        WhatsApp resta sempre una scheda Chrome normale, non toccata)
+#        e la rimette nel Dock se non c'è.
+#   3. Scrive WhatsApp_Engine_Version.json così il badge nel Generatore
+#      mostra sempre la versione del motore realmente installata.
+#   4. Ricarica il LaunchAgent e verifica /api/health.
+#
+# Helper WhatsApp (~/Applications/Invia Ricevuta WhatsApp.app, il guscio
+# autorizzato in Accessibilità):
+#   - se c'è, NON viene MAI toccato (si perderebbe il consenso
+#     Accessibilità di High Sierra);
+#   - se manca, viene cercato nel Cestino e in altre cartelle e rimesso
+#     al suo posto così com'era (il consenso resta valido);
+#   - solo se non si trova da nessuna parte viene ricostruito dal sorgente
+#     incorporato, e l'installer guida a ridare il permesso Accessibilità.
+#
+# Cosa NON tocca MAI (nessuna riga di questo script scrive lì dentro):
+#   - ElencoRicevute/  (Affittuari.json, Ricevute_Dati.json, i PDF, i log,
+#     WhatsApp_Destinatario.json, WhatsApp_Inviati.log, ecc.)
+#
+# Si può rilanciare più volte in sicurezza: ogni volta fa un nuovo backup
+# datato prima di sovrascrivere.
+
+set -u
+
+ROOT_DIR="/Users/bless/Archivio/Appart/Ricevute Affittuari"
+DATA_DIR="$ROOT_DIR/ElencoRicevute"
+HTML_NAME="Generatore_Ricevute_Condominio.html"
+HTML_TARGET="$ROOT_DIR/$HTML_NAME"
+
+APP_SUPPORT="$HOME/Library/Application Support/CruscottoAffitti"
+LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
+PLIST_NAME="com.letmar.cruscottoaffitti.server.plist"
+PLIST_TARGET="$LAUNCH_AGENTS/$PLIST_NAME"
+LAUNCHER_APP_TARGET="$HOME/Applications/Cruscotto Affitti.app"
+HELPER_APP="$HOME/Applications/Invia Ricevuta WhatsApp.app"
+HELPER_BUNDLE_ID="com.letmar.cruscottoaffitti.whatsapphelper"
+
+STAMP="$(date '+%Y%m%d_%H%M%S')"
+BACKUP_DIR="$APP_SUPPORT/Backup_Installer/$STAMP"
+PAYLOAD_DIR="/tmp/Cruscotto_Affitti_Installer_Payload_$STAMP"
+
+INSTALL_LOG="/tmp/Cruscotto_Affitti_Installer.log"
+REPORT="$HOME/Desktop/Diagnosi_Cruscotto_Affitti.txt"
+
+HELPER_STATUS=""
+HELPER_FROM=""
+DOCK_STATUS=""
+
+log() {
+  printf '%s  %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$INSTALL_LOG"
+}
+
+fail() {
+  log "ERRORE: $*"
+  rep ""
+  rep "=== INSTALLAZIONE INTERROTTA: $* ==="
+  osascript -e "display alert \"Installazione non riuscita\" message \"$*\" as critical" >/dev/null 2>&1
+  exit 1
+}
+
+# --- Diagnosi (solo lettura) -----------------------------------------------
+
+rep() {
+  printf '%s\n' "$*" >> "$REPORT" 2>/dev/null
+}
+
+rep_sh() {
+  # $1 = titolo, $2 = comando di sola lettura (eseguito con eval)
+  rep ""
+  rep "--- $1 ---"
+  eval "$2" >> "$REPORT" 2>&1 || rep "(nessun risultato)"
+}
+
+diagnosi() {
+  : 2>/dev/null > "$REPORT" || REPORT="/tmp/Diagnosi_Cruscotto_Affitti.txt"
+  : > "$REPORT"
+  rep "Diagnosi Cruscotto Affitti — installer @@VER@@ — $(date '+%d/%m/%Y %H:%M:%S')"
+  rep "Situazione trovata PRIMA dell'installazione."
+  rep ""
+  rep "Utente: $(whoami)   macOS: $(sw_vers -productVersion 2>/dev/null)"
+  rep "Chrome: $(defaults read '/Applications/Google Chrome.app/Contents/Info' CFBundleShortVersionString 2>/dev/null || echo 'non trovato in /Applications')"
+  if [ -d "$HELPER_APP" ]; then
+    rep "Helper WhatsApp (~/Applications/Invia Ricevuta WhatsApp.app): PRESENTE"
+  else
+    rep "Helper WhatsApp (~/Applications/Invia Ricevuta WhatsApp.app): MANCANTE"
+  fi
+  if [ -d "$LAUNCHER_APP_TARGET" ]; then
+    rep "App Cruscotto Affitti (~/Applications/Cruscotto Affitti.app): PRESENTE"
+  else
+    rep "App Cruscotto Affitti (~/Applications/Cruscotto Affitti.app): MANCANTE"
+  fi
+  rep_sh "Contenuto di ~/Applications" "ls -la \"$HOME/Applications\""
+  rep_sh "Nel Cestino (WhatsApp / Cruscotto)" "ls -1 \"$HOME/.Trash\" | grep -i -e whatsapp -e cruscotto"
+  rep_sh "Copie trovate da Spotlight" "mdfind -name 'Invia Ricevuta WhatsApp'; mdfind -name 'Cruscotto Affitti' | grep '\\.app\$'"
+  rep_sh "Dock (voci Cruscotto)" "defaults read com.apple.dock persistent-apps | grep -i cruscotto"
+  rep_sh "LaunchAgent del server" "launchctl list | grep -i cruscotto"
+  rep_sh "Server /api/health" "curl -s --max-time 5 http://127.0.0.1:8765/api/health"
+  rep_sh "Motore WhatsApp installato" "ls -la \"$APP_SUPPORT/WhatsApp_Engine.scpt\"; cat \"$APP_SUPPORT/WhatsApp_Engine_Version.json\""
+  rep_sh "Cartelle dati" "ls -ld \"$ROOT_DIR\" \"$DATA_DIR\""
+  rep_sh "Ultime righe log motore WhatsApp" "tail -n 80 /tmp/Invia_Ricevuta_WhatsApp_Helper_v97.log"
+  rep_sh "Ultime righe log server (avvio Helper)" "tail -n 30 /tmp/Invia_Ricevuta_WhatsApp_Server.log"
+  rep_sh "Ultime righe log server (autostart)" "tail -n 30 /tmp/Cruscotto_Affitti_Autostart.log"
+}
+
+log "=== Installer Cruscotto Affitti @@VER@@ (tutto-in-uno) avviato ==="
+diagnosi
+log "Diagnosi della situazione iniziale scritta in: $REPORT"
+
+# --- 0. Controlli di base -----------------------------------------------
+
+if [ "$(whoami)" != "bless" ]; then
+  log "ATTENZIONE: utente attuale è $(whoami), non 'bless'. Proseguo comunque perché i percorsi restano quelli previsti per bless, ma verificare che sia il Mac giusto."
+fi
+
+if [ ! -d "$ROOT_DIR" ]; then
+  fail "Non trovo la cartella principale:\n$ROOT_DIR\n\nQuesto installer è pensato per il Mac della Mammetta. Se i percorsi sono cambiati, avvisa Mario prima di continuare."
+fi
+
+if [ ! -d "$DATA_DIR" ]; then
+  fail "Non trovo ElencoRicevute dentro:\n$ROOT_DIR\n\nPer sicurezza mi fermo: non voglio installare nulla se i dati degli affittuari non sono al loro posto."
+fi
+
+mkdir -p "$APP_SUPPORT" "$LAUNCH_AGENTS" "$HOME/Applications" "$BACKUP_DIR" "$PAYLOAD_DIR" || fail "Non riesco a creare le cartelle di destinazione/backup/lavoro."
+log "Backup di questa installazione in: $BACKUP_DIR"
+log "Cartella di lavoro temporanea: $PAYLOAD_DIR"
+
+# --- 1. Estrae i file incorporati in questo installer ---------------------
+
+cat > "$PAYLOAD_DIR/WhatsApp_Engine_@@VER@@.applescript" <<'___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___'
+@@PAYLOAD:ENGINE@@
+___CRUSCOTTO_PAYLOAD_APPLESCRIPT_9f3c1a___
+
+cat > "$PAYLOAD_DIR/Generatore_Ricevute_Condominio.html" <<'___CRUSCOTTO_PAYLOAD_HTML_9f3c1a___'
+@@PAYLOAD:HTML@@
+___CRUSCOTTO_PAYLOAD_HTML_9f3c1a___
+
+cat > "$PAYLOAD_DIR/Cruscotto_Affitti_Server.py" <<'___CRUSCOTTO_PAYLOAD_SERVER_9f3c1a___'
+@@PAYLOAD:SERVER@@
+___CRUSCOTTO_PAYLOAD_SERVER_9f3c1a___
+
+cat > "$PAYLOAD_DIR/Avvia_Cruscotto_Affitti_Server.sh" <<'___CRUSCOTTO_PAYLOAD_RUNNER_9f3c1a___'
+@@PAYLOAD:RUNNER@@
+___CRUSCOTTO_PAYLOAD_RUNNER_9f3c1a___
+
+cat > "$PAYLOAD_DIR/com.letmar.cruscottoaffitti.server.plist" <<'___CRUSCOTTO_PAYLOAD_PLIST_9f3c1a___'
+@@PAYLOAD:PLIST@@
+___CRUSCOTTO_PAYLOAD_PLIST_9f3c1a___
+
+cat > "$PAYLOAD_DIR/Cruscotto_Affitti_Launcher.applescript" <<'___CRUSCOTTO_PAYLOAD_LAUNCHER_9f3c1a___'
+@@PAYLOAD:LAUNCHER@@
+___CRUSCOTTO_PAYLOAD_LAUNCHER_9f3c1a___
+
+cat > "$PAYLOAD_DIR/Invia_Ricevuta_WhatsApp_Helper.applescript" <<'___CRUSCOTTO_PAYLOAD_HELPER_9f3c1a___'
+@@PAYLOAD:HELPER@@
+___CRUSCOTTO_PAYLOAD_HELPER_9f3c1a___
+
+cat > "$PAYLOAD_DIR/CruscottoAffitti.icns.b64" <<'___CRUSCOTTO_PAYLOAD_ICON_B64_9f3c1a___'
+@@PAYLOAD:ICON_B64@@
+___CRUSCOTTO_PAYLOAD_ICON_B64_9f3c1a___
+
+base64 -D -o "$PAYLOAD_DIR/CruscottoAffitti.icns" "$PAYLOAD_DIR/CruscottoAffitti.icns.b64" 2>>"$INSTALL_LOG" \
+  || base64 -d "$PAYLOAD_DIR/CruscottoAffitti.icns.b64" > "$PAYLOAD_DIR/CruscottoAffitti.icns" 2>>"$INSTALL_LOG" \
+  || fail "Non riesco a decodificare l'icona incorporata (base64). Dettagli in $INSTALL_LOG"
+rm -f "$PAYLOAD_DIR/CruscottoAffitti.icns.b64"
+
+log "File incorporati estratti correttamente in $PAYLOAD_DIR"
+
+# --- 2. Backup di tutto ciò che sto per sovrascrivere --------------------
+# (mai un 'mv', sempre 'cp': l'originale resta comunque dov'era finché
+#  non lo sostituisco esplicitamente più sotto)
+
+backup_if_exists() {
+  local src="$1"
+  local label="$2"
+  if [ -e "$src" ]; then
+    mkdir -p "$BACKUP_DIR/$label"
+    cp -p "$src" "$BACKUP_DIR/$label/" 2>>"$INSTALL_LOG"
+    log "Backup: $src -> $BACKUP_DIR/$label/"
+  else
+    log "Nessun file preesistente da salvare per: $src (prima installazione, ok)."
+  fi
+}
+
+backup_dir_if_exists() {
+  local src="$1"
+  local label="$2"
+  if [ -e "$src" ]; then
+    mkdir -p "$BACKUP_DIR/$label"
+    cp -R "$src" "$BACKUP_DIR/$label/" 2>>"$INSTALL_LOG"
+    log "Backup: $src -> $BACKUP_DIR/$label/"
+  else
+    log "Nessun file preesistente da salvare per: $src (prima installazione, ok)."
+  fi
+}
+
+backup_if_exists "$APP_SUPPORT/WhatsApp_Engine.scpt" "WhatsApp_Engine"
+backup_if_exists "$APP_SUPPORT/Avvia_Cruscotto_Affitti_Server.sh" "Server_Runner"
+backup_if_exists "$APP_SUPPORT/Cruscotto_Affitti_Server.py" "Server_Python"
+backup_if_exists "$HTML_TARGET" "Generatore_HTML"
+backup_if_exists "$PLIST_TARGET" "LaunchAgent_Plist"
+backup_dir_if_exists "$LAUNCHER_APP_TARGET" "Launcher_App"
+
+# Nota IMPORTANTE: NON facciamo alcun backup/tocco di $DATA_DIR
+# (ElencoRicevute) perché questo installer non lo scrive mai.
+log "NON toccato (come da regola): $DATA_DIR"
+
+# --- 3. Compila ed installa il motore WhatsApp @@VER@@ -----------------------
+
+command -v osacompile >/dev/null 2>&1 || fail "osacompile non trovato: questo Mac non ha gli strumenti AppleScript. Impossibile compilare il motore WhatsApp."
+
+TMP_SCPT="/tmp/WhatsApp_Engine_@@VER@@_$STAMP.scpt"
+osacompile -o "$TMP_SCPT" "$PAYLOAD_DIR/WhatsApp_Engine_@@VER@@.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione di WhatsApp_Engine_@@VER@@.applescript. Dettagli in $INSTALL_LOG"
+
+cp -p "$TMP_SCPT" "$APP_SUPPORT/WhatsApp_Engine.scpt" \
+  || fail "Non riesco a copiare WhatsApp_Engine.scpt in $APP_SUPPORT"
+rm -f "$TMP_SCPT"
+log "Installato: $APP_SUPPORT/WhatsApp_Engine.scpt (da @@VER@@)"
+
+# Scrive un file di versione che il server legge e mostra nel Generatore
+# HTML (badge accanto al titolo), così si vede sempre "dietro le quinte"
+# quale motore WhatsApp è davvero installato.
+ENGINE_VERSION_FILE="$APP_SUPPORT/WhatsApp_Engine_Version.json"
+INSTALLED_AT_HUMAN="$(date '+%d/%m/%Y %H:%M')"
+cat > "$ENGINE_VERSION_FILE" <<EOF
+{
+  "version": "@@VER@@",
+  "installedAt": "$INSTALLED_AT_HUMAN",
+  "sourceFile": "WhatsApp_Engine_@@VER@@.applescript"
+}
+EOF
+log "Scritto: $ENGINE_VERSION_FILE (badge versione motore nel Generatore)"
+
+# --- 4. Installa il Generatore HTML ----------------------------------------
+
+cp -p "$PAYLOAD_DIR/Generatore_Ricevute_Condominio.html" "$HTML_TARGET" \
+  || fail "Non riesco a copiare il Generatore HTML in $HTML_TARGET"
+log "Installato: $HTML_TARGET (@@VER@@)"
+
+# --- 5. Installa runner + server Python -----------------------------------
+
+cp -p "$PAYLOAD_DIR/Avvia_Cruscotto_Affitti_Server.sh" "$APP_SUPPORT/Avvia_Cruscotto_Affitti_Server.sh" \
+  || fail "Non riesco a copiare Avvia_Cruscotto_Affitti_Server.sh"
+chmod +x "$APP_SUPPORT/Avvia_Cruscotto_Affitti_Server.sh"
+log "Installato: $APP_SUPPORT/Avvia_Cruscotto_Affitti_Server.sh"
+
+cp -p "$PAYLOAD_DIR/Cruscotto_Affitti_Server.py" "$APP_SUPPORT/Cruscotto_Affitti_Server.py" \
+  || fail "Non riesco a copiare Cruscotto_Affitti_Server.py"
+log "Installato: $APP_SUPPORT/Cruscotto_Affitti_Server.py"
+
+# --- 6. Installa/aggiorna il LaunchAgent e riavvia il server --------------
+
+cp -p "$PAYLOAD_DIR/com.letmar.cruscottoaffitti.server.plist" "$PLIST_TARGET" \
+  || fail "Non riesco a copiare il LaunchAgent in $PLIST_TARGET"
+log "Installato: $PLIST_TARGET"
+
+UID_NUM="$(id -u)"
+if launchctl print "gui/$UID_NUM/com.letmar.cruscottoaffitti.server" >/dev/null 2>&1; then
+  log "LaunchAgent già in esecuzione: lo ricarico per usare i nuovi file."
+  launchctl bootout "gui/$UID_NUM" "$PLIST_TARGET" >>"$INSTALL_LOG" 2>&1
+  sleep 1
+fi
+launchctl bootstrap "gui/$UID_NUM" "$PLIST_TARGET" >>"$INSTALL_LOG" 2>&1 \
+  || launchctl load "$PLIST_TARGET" >>"$INSTALL_LOG" 2>&1
+launchctl kickstart -k "gui/$UID_NUM/com.letmar.cruscottoaffitti.server" >>"$INSTALL_LOG" 2>&1 || true
+
+log "LaunchAgent avviato/ricaricato."
+
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+
+# --- 7. Helper WhatsApp: controlla, recupera o (solo se sparito) ricrea ----
+# È l'app che il server avvia per l'invio e che ha il permesso
+# Accessibilità. Se c'è non la tocchiamo MAI.
+
+if [ -d "$HELPER_APP" ]; then
+  HELPER_STATUS="presente"
+  log "Helper WhatsApp presente: $HELPER_APP (non lo tocco, come da regola)."
+else
+  log "ATTENZIONE: Helper WhatsApp MANCANTE in $HELPER_APP. Lo cerco nel Cestino e nelle altre cartelle."
+  HELPER_FOUND=""
+  for cand in "$HOME/.Trash/Invia Ricevuta WhatsApp"*.app \
+              "/Applications/Invia Ricevuta WhatsApp.app" \
+              "$HOME/Desktop/Invia Ricevuta WhatsApp.app" \
+              "$HOME/Downloads/Invia Ricevuta WhatsApp.app" \
+              "$HOME/Documents/Invia Ricevuta WhatsApp.app"; do
+    if [ -d "$cand/Contents" ]; then HELPER_FOUND="$cand"; break; fi
+  done
+  if [ -z "$HELPER_FOUND" ] && command -v mdfind >/dev/null 2>&1; then
+    while IFS= read -r cand; do
+      case "$cand" in
+        */Backup_Installer/*) continue ;;
+        *.app) [ -d "$cand/Contents" ] && { HELPER_FOUND="$cand"; break; } ;;
+      esac
+    done < <(mdfind -name "Invia Ricevuta WhatsApp" 2>/dev/null)
+  fi
+
+  if [ -n "$HELPER_FOUND" ]; then
+    log "Trovato Helper WhatsApp in: $HELPER_FOUND"
+    case "$HELPER_FOUND" in
+      "$HOME/.Trash/"*)
+        # dal Cestino lo SPOSTIAMO indietro: è l'originale autorizzato
+        mv "$HELPER_FOUND" "$HELPER_APP" >>"$INSTALL_LOG" 2>&1 && HELPER_STATUS="recuperato" ;;
+      *)
+        # altrove lo COPIAMO identico (ditto conserva tutto), l'originale resta dov'è
+        ditto "$HELPER_FOUND" "$HELPER_APP" >>"$INSTALL_LOG" 2>&1 && HELPER_STATUS="recuperato" ;;
+    esac
+    if [ "$HELPER_STATUS" = "recuperato" ]; then
+      HELPER_FROM="$HELPER_FOUND"
+      log "Helper WhatsApp rimesso al suo posto: $HELPER_APP (originale, permesso Accessibilità conservato)."
+    else
+      log "ATTENZIONE: non sono riuscito a rimettere al suo posto $HELPER_FOUND: lo ricostruisco."
+    fi
+  fi
+
+  if [ -z "$HELPER_STATUS" ]; then
+    osacompile -o "$HELPER_APP" "$PAYLOAD_DIR/Invia_Ricevuta_WhatsApp_Helper.applescript" 2>>"$INSTALL_LOG" \
+      || fail "osacompile ha fallito la compilazione dell'Helper WhatsApp. Dettagli in $INSTALL_LOG"
+    HELPER_PLIST="$HELPER_APP/Contents/Info.plist"
+    if [ -f "$HELPER_PLIST" ] && [ -x /usr/libexec/PlistBuddy ]; then
+      # identificativo nuovo: così macOS non lo confonde con la vecchia
+      # voce in Accessibilità (che non varrebbe più per questa copia)
+      /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $HELPER_BUNDLE_ID" "$HELPER_PLIST" 2>>"$INSTALL_LOG" \
+        || /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $HELPER_BUNDLE_ID" "$HELPER_PLIST" 2>>"$INSTALL_LOG"
+    fi
+    [ -x "$LSREGISTER" ] && "$LSREGISTER" -f "$HELPER_APP" >>"$INSTALL_LOG" 2>&1
+    HELPER_STATUS="ricreato"
+    log "Helper WhatsApp RICOSTRUITO: $HELPER_APP (serve ridare il permesso Accessibilità)."
+  fi
+fi
+
+# --- 8. Compila ed installa il Launcher "Cruscotto Affitti.app" -----------
+# Apre SOLO il Generatore come finestra-app Chrome dedicata (niente tab,
+# niente barra indirizzi). NON tocca WhatsApp: WhatsApp resta sempre una
+# scheda di una normale finestra Google Chrome, come oggi. Vedi i commenti
+# dentro Cruscotto_Affitti_Launcher.applescript per i dettagli.
+
+# Se il launcher (applet che resta aperta) è in esecuzione, lo chiudo
+# prima di sostituirlo. pkill sul suo eseguibile: non avvia nulla.
+pkill -f "Cruscotto Affitti.app/Contents/MacOS/applet" >>"$INSTALL_LOG" 2>&1 || true
+sleep 1
+
+if [ -e "$LAUNCHER_APP_TARGET" ]; then
+  rm -rf "$LAUNCHER_APP_TARGET"
+fi
+
+osacompile -s -o "$LAUNCHER_APP_TARGET" "$PAYLOAD_DIR/Cruscotto_Affitti_Launcher.applescript" 2>>"$INSTALL_LOG" \
+  || fail "osacompile ha fallito la compilazione del launcher Cruscotto Affitti.app. Dettagli in $INSTALL_LOG"
+
+mkdir -p "$LAUNCHER_APP_TARGET/Contents/Resources"
+cp "$PAYLOAD_DIR/CruscottoAffitti.icns" "$LAUNCHER_APP_TARGET/Contents/Resources/CruscottoAffitti.icns" \
+  || fail "Non riesco a copiare l'icona nel launcher."
+
+LAUNCHER_PLIST="$LAUNCHER_APP_TARGET/Contents/Info.plist"
+if [ -f "$LAUNCHER_PLIST" ] && command -v /usr/libexec/PlistBuddy >/dev/null 2>&1; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile CruscottoAffitti.icns" "$LAUNCHER_PLIST" 2>>"$INSTALL_LOG" \
+    || /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string CruscottoAffitti.icns" "$LAUNCHER_PLIST" 2>>"$INSTALL_LOG"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Cruscotto Affitti" "$LAUNCHER_PLIST" 2>>"$INSTALL_LOG" \
+    || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Cruscotto Affitti" "$LAUNCHER_PLIST" 2>>"$INSTALL_LOG"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleName Cruscotto Affitti" "$LAUNCHER_PLIST" 2>>"$INSTALL_LOG" \
+    || /usr/libexec/PlistBuddy -c "Add :CFBundleName string Cruscotto Affitti" "$LAUNCHER_PLIST" 2>>"$INSTALL_LOG"
+else
+  log "ATTENZIONE: PlistBuddy non disponibile, l'icona/nome del launcher potrebbero non aggiornarsi (l'app funziona comunque)."
+fi
+
+touch "$LAUNCHER_APP_TARGET" 2>>"$INSTALL_LOG"
+
+# macOS mette in cache le icone delle app: senza questo passaggio, dopo
+# aver sostituito l'icona il Dock può continuare a mostrare quella vecchia
+# (o un'icona generica) finché non si forza un aggiornamento.
+if [ -x "$LSREGISTER" ]; then
+  "$LSREGISTER" -f "$LAUNCHER_APP_TARGET" >>"$INSTALL_LOG" 2>&1
+fi
+log "Installato: $LAUNCHER_APP_TARGET (icona ri-registrata)"
+
+# --- 9. Mette l'icona della casetta nel Dock (se non c'è già) --------------
+
+DOCK_URL="file://$HOME/Applications/Cruscotto%20Affitti.app/"
+if defaults read com.apple.dock persistent-apps 2>/dev/null | grep -q "Applications/Cruscotto%20Affitti.app"; then
+  DOCK_STATUS="già presente"
+  log "Il Dock ha già l'icona di Cruscotto Affitti."
+else
+  if defaults write com.apple.dock persistent-apps -array-add "<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>$DOCK_URL</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>" >>"$INSTALL_LOG" 2>&1; then
+    DOCK_STATUS="aggiunta"
+    log "Icona di Cruscotto Affitti aggiunta al Dock."
+  else
+    DOCK_STATUS="non aggiunta"
+    log "ATTENZIONE: non sono riuscito ad aggiungere l'icona al Dock (si può trascinare a mano da ~/Applications)."
+  fi
+fi
+killall Dock >>"$INSTALL_LOG" 2>&1 || true
+log "Dock riavviato (icone aggiornate)."
+
+# --- 10. Pulizia file temporanei -------------------------------------------
+
+rm -rf "$PAYLOAD_DIR"
+log "Cartella di lavoro temporanea rimossa: $PAYLOAD_DIR"
+
+# --- 11. Verifica finale e riepilogo ---------------------------------------
+
+sleep 2
+HEALTH="$(curl -s --max-time 5 http://127.0.0.1:8765/api/health 2>>"$INSTALL_LOG")"
+
+case "$HELPER_STATUS" in
+  presente)   HELPER_LINE="Helper WhatsApp: al suo posto, non toccato." ;;
+  recuperato) HELPER_LINE="Helper WhatsApp: era sparito, l'ho ritrovato e rimesso al suo posto (originale, permesso conservato)." ;;
+  *)          HELPER_LINE="Helper WhatsApp: era sparito e l'ho RICOSTRUITO. Serve ridargli il permesso Accessibilità: ti guido io nella prossima finestra." ;;
+esac
+case "$DOCK_STATUS" in
+  aggiunta)        DOCK_LINE="App Cruscotto Affitti: ricreata e rimessa nel Dock (la casetta)." ;;
+  "già presente")  DOCK_LINE="App Cruscotto Affitti: ricreata, l'icona nel Dock c'era già." ;;
+  *)               DOCK_LINE="App Cruscotto Affitti: ricreata in Applicazioni della tua cartella Inizio; trascinala nel Dock." ;;
+esac
+
+rep ""
+rep "=== ESITO INSTALLAZIONE @@VER@@ ==="
+rep "$HELPER_LINE"
+[ -n "$HELPER_FROM" ] && rep "Helper recuperato da: $HELPER_FROM"
+rep "$DOCK_LINE"
+rep "Server dopo l'installazione: ${HEALTH:-NON RISPONDE}"
+rep "Backup: $BACKUP_DIR"
+
+if [ -n "$HEALTH" ]; then
+  log "Server risponde: $HEALTH"
+  MSG="Installazione completata.
+
+$HELPER_LINE
+$DOCK_LINE
+Motore WhatsApp e Generatore: @@VER@@
+Server: attivo su http://127.0.0.1:8765
+
+Sulla Scrivania trovi Diagnosi_Cruscotto_Affitti.txt con quello che ho trovato prima di sistemare: se qualcosa non va ancora, mandalo a Camilla.
+
+I dati degli affittuari (ElencoRicevute) NON sono stati toccati."
+  log "=== Installazione completata con successo ==="
+else
+  log "ATTENZIONE: il server non ha risposto entro 5 secondi su /api/health."
+  MSG="I file sono stati installati e il backup è in:
+$BACKUP_DIR
+
+$HELPER_LINE
+$DOCK_LINE
+
+Ma il server su 127.0.0.1:8765 non ha ancora risposto.
+Prova a riavviare il Mac. Sulla Scrivania trovi Diagnosi_Cruscotto_Affitti.txt da mandare a Camilla."
+fi
+osascript -e "display dialog \"$MSG\" with title \"Cruscotto Affitti — Installazione @@VER@@\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+
+if [ "$HELPER_STATUS" = "ricreato" ]; then
+  ACC_MSG="Ultimo passaggio, una volta sola: il permesso Accessibilità per l'Helper WhatsApp.
+
+Quando premi OK si aprono le Preferenze di Sistema (Sicurezza e Privacy, Accessibilità) e una finestra del Finder con l'app Invia Ricevuta WhatsApp già selezionata.
+
+1. Clicca il lucchetto in basso a sinistra e inserisci la password.
+2. Se nell'elenco c'è già Invia Ricevuta WhatsApp, selezionala e premi il tasto meno.
+3. Trascina Invia Ricevuta WhatsApp dal Finder dentro l'elenco e controlla che la casella sia spuntata.
+4. Richiudi il lucchetto. Fatto!"
+  osascript -e "display dialog \"$ACC_MSG\" with title \"Cruscotto Affitti — Permesso Accessibilità\" buttons {\"OK\"} default button 1" >/dev/null 2>&1
+  open -R "$HELPER_APP" >>"$INSTALL_LOG" 2>&1
+  open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility" >>"$INSTALL_LOG" 2>&1
+  log "Aperte Preferenze di Sistema > Accessibilità e il Finder sull'Helper ricostruito."
+fi
+
+log "Log completo di questa installazione: $INSTALL_LOG"
+exit 0

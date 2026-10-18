@@ -434,6 +434,41 @@ Su macOS si possono compilare in .scpt con:
    numerazione scende (23 -> 1). NOTA: le nuove voci vanno IN CIMA alla
    prima lista, aumentando start di 1. Motore identico a v137.
 
+6w. v139 — installatore "di riparazione" (18/10/2026)
+   Segnalazione di Mario: l'invio WhatsApp da Chrome non funziona più e
+   l'icona dell'App della casetta è sparita. Le due app stanno entrambe in
+   ~/Applications: l'ipotesi è che quella cartella sia stata svuotata o
+   spostata (senza l'Helper il server risponde "Helper WhatsApp v97 non
+   trovato in ~/Applications" e l'invio si ferma).
+   L'installer v139:
+   - PRIMA di toccare qualcosa scrive ~/Desktop/Diagnosi_Cruscotto_Affitti.txt
+     (app presenti, Cestino, Spotlight, Dock, LaunchAgent, /api/health,
+     motore, cartelle dati, ultime righe dei log WhatsApp/server) e in fondo
+     aggiunge l'esito. È il primo file da chiedere se qualcosa non va;
+   - Helper WhatsApp: se c'è NON lo tocca (regola invariata). Se manca lo
+     cerca nel Cestino ("Invia Ricevuta WhatsApp*.app", lo SPOSTA indietro),
+     in /Applications, Scrivania, Download, Documenti e con mdfind (lo
+     COPIA con ditto, ignorando Backup_Installer): è l'originale, quindi il
+     permesso Accessibilità resta valido. Solo se non si trova da nessuna
+     parte lo ricompila da Invia_Ricevuta_WhatsApp_Helper.applescript (guscio
+     che fa load script del motore e lo esegue) con bundle id
+     com.letmar.cruscottoaffitti.whatsapphelper, poi apre Preferenze di
+     Sistema > Accessibilità e il Finder sull'app con le istruzioni per
+     ridare il permesso (togliere con "-" la vecchia voce, trascinare la
+     nuova);
+   - App della casetta: ricreata come sempre e rimessa nel Dock (defaults
+     write com.apple.dock persistent-apps) solo se non c'è già una voce
+     ".../Applications/Cruscotto%20Affitti.app".
+   Motore identico a v138 (cambia solo la riga di intestazione nel log).
+   GENERATORE DELL'INSTALLER ORA NEL REPO: build_installer.py +
+   Installer_Template.command.in (il vecchio script stava nello scratchpad
+   della sessione ed è andato perso). Uso:
+     python3 build_installer.py v140 "descrizione senza doppi apici"
+   richiede WhatsApp_Engine_v140.applescript. Testato in simulazione
+   (finti osacompile/defaults/osascript) nei casi: Helper presente,
+   nel Cestino, trovato da Spotlight, sparito; seconda esecuzione senza
+   doppioni nel Dock; ElencoRicevute intatto.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"

@@ -524,6 +524,13 @@ Su macOS si possono compilare in .scpt con:
    NB: "AppNum08" nei nomi PDF dei Box è il numero del BOX (BEHI MOHAMED è
    il Box 08), non l'appartamento 8.
 
+6z. COMANDO DI INSTALLAZIONE DA DARE A MARIO (forma definitiva, 18/10/2026)
+   Con "&&" e "xattr -d com.apple.quarantine" la catena si fermava se il
+   file non aveva l'attributo di quarantena ("No such xattr") e
+   l'installer non partiva. Usare SEMPRE:
+     chmod +x ~/Downloads/Installa_Cruscotto_Affitti_vNNN.command; xattr -c ~/Downloads/Installa_Cruscotto_Affitti_vNNN.command; ~/Downloads/Installa_Cruscotto_Affitti_vNNN.command
+   (xattr -c non dà errore se non ci sono attributi; i ";" non bloccano.)
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"

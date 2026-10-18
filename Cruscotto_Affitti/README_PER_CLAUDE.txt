@@ -469,6 +469,22 @@ Su macOS si possono compilare in .scpt con:
    nel Cestino, trovato da Spotlight, sparito; seconda esecuzione senza
    doppioni nel Dock; ElencoRicevute intatto.
 
+6x. Esito della diagnosi v139 (18/10/2026): la causa NON era la cartella
+   ~/Applications (Helper e App erano presenti). Il 03/10/2026 alle 08:31
+   sul Mac è stato rilanciato un VECCHIO installer, v131
+   (Backup_Installer/20261003_083117, WhatsApp_Engine_Version.json =
+   v131). Quindi erano tornati:
+   - il motore v131, che usa ancora il selettore file macOS: nel log
+     "FAIL: il selettore file macOS non si è aperto" / FAIL:PICKER;
+   - il launcher pre-v132, che non resta aperto: la casetta non resta nel
+     Dock.
+   L'installer v139 ha rimesso tutto (motore v139 = logica v136, launcher
+   stay-open, voce nel Dock). Consigliato a Mario di spostare nel Cestino i
+   vecchi Installa_Cruscotto_Affitti_v*.command dai Download e di non
+   richiamare comandi vecchi con la freccia su del Terminale. Se si
+   ripresenta: il badge accanto al titolo mostra la versione del motore
+   installata, ed è il primo controllo da fare.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"

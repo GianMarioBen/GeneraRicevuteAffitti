@@ -78,6 +78,11 @@
   .tenant-setup-row input{margin:0;padding:7px 8px;font-size:12px}
   .setup-save{margin-top:10px;background:#1f6f43;color:#fff;font-weight:800}
   .setup-save:hover{background:#185b37}
+  .tenant-setup-row input.missing-phone{background:#fff1f1;border-color:#e3a3a3}
+  .tenant-setup-row input.recovered-phone{background:#eaf7ee;border-color:#7cc49a}
+  .setup-recover{margin-top:10px;background:#fff;color:#1f6f43;border:1px solid #1f6f43;font-weight:700}
+  .setup-recover:hover{background:#eef7f1}
+  #tenantRecoverStatus{white-space:pre-line}
   .whatsapp-force-box{
     margin:10px 0 12px;
     padding:10px 12px;
@@ -828,7 +833,7 @@
 <div class="app">
   <div class="panel">
     <div class="app-title-row">
-      <h1>Generatore ricevute <span style="font-size:12px;font-weight:400;color:#666">v139</span> <span id="whatsappEngineBadge" style="font-size:11px;font-weight:400;color:#888" title="Versione del motore WhatsApp installata sul server locale"></span></h1>
+      <h1>Generatore ricevute <span style="font-size:12px;font-weight:400;color:#666">v140</span> <span id="whatsappEngineBadge" style="font-size:11px;font-weight:400;color:#888" title="Versione del motore WhatsApp installata sul server locale"></span></h1>
       <div class="title-actions">
         <button type="button" class="advanced-toggle compact-toggle" id="advancedToggleBtn" onclick="toggleAdvancedFields()">
           Mostra più campi
@@ -1263,9 +1268,16 @@ class ServerFileHandle{
       cache:'no-store'
     });
 
+    // v140: "NotFoundError" SOLO quando il server dice davvero 404 (file
+    // inesistente). Un altro errore (server occupato, risposta 500) non deve
+    // sembrare un file mancante: chi legge Affittuari.json o
+    // Ricevute_Dati.json lo ricreerebbe da zero perdendo i dati.
     if(!res.ok){
-      const err=new Error('File non trovato: '+this.name);
-      err.name='NotFoundError';
+      const missing=res.status===404;
+      const err=new Error(missing
+        ? 'File non trovato: '+this.name
+        : 'Il server locale non riesce a leggere '+this.name+' ('+res.status+').');
+      err.name=missing ? 'NotFoundError' : 'ServerReadError';
       throw err;
     }
 
@@ -1458,10 +1470,81 @@ function renderTenantSetup(){
       <input data-field="appartamento" value="${String(p.appartamento||'').replace(/"/g,'&quot;')}">
       <input data-field="indirizzo" value="${String(p.indirizzo||'').replace(/"/g,'&quot;')}">
       <input data-field="canone" type="number" step="0.01" value="${Number(p.canone||0)}">
-      <input data-field="telefono" type="tel" placeholder="+39 333 1234567" value="${String(p.telefono||'').replace(/"/g,'&quot;')}">
+      <input data-field="telefono" type="tel" placeholder="+39 333 1234567" class="${String(p.telefono||'').trim()?'':'missing-phone'}" oninput="this.classList.remove('missing-phone')" value="${String(p.telefono||'').replace(/"/g,'&quot;')}">
     `;
     holder.appendChild(row);
   });
+}
+
+// v140: recupera i numeri WhatsApp mancanti dallo storico delle ricevute
+// (dalla v115 Ricevute_Dati.json conserva il telefono di ogni ricevuta).
+// Riempie SOLO i campi vuoti della griglia, preferendo la ricevuta più
+// recente con lo stesso nome e la stessa unità. Non salva nulla da solo:
+// i numeri diventano definitivi solo con «Salva modifiche affittuari».
+function recoverTenantPhonesFromReceipts(){
+  const status=$('tenantRecoverStatus');
+  const receipts=Object.values(receiptLookup||{}).filter(r=>r && typeof r==='object');
+  if(!receipts.length){
+    status.textContent='Lo storico delle ricevute non è caricato: collega la cartella delle ricevute e riprova.';
+    return;
+  }
+
+  const byName={}, byNameUnit={};
+  for(const r of receipts){
+    const tel=String(r.telefono||'').trim();
+    const name=normalizeTenantKeyText(r.nominativo);
+    if(!tel || !name) continue;
+    const rec={
+      tel,
+      when:String(r.dataPagamento||r.createdAt||''),
+      nominativo:String(r.nominativo||'').trim(),
+      unita:String(r.unita||'').trim()
+    };
+    const keep=(map,key)=>{ if(!map[key] || rec.when>=map[key].when) map[key]=rec; };
+    keep(byName,name);
+    keep(byNameUnit,name+'|'+normalizeTenantKeyText(r.unita));
+  }
+
+  const filled=[], stillMissing=[], listed=new Set();
+  document.querySelectorAll('#tenantSetupRows .tenant-setup-row').forEach(row=>{
+    const field=f=>row.querySelector(`[data-field="${f}"]`);
+    const nome=field('nominativo').value.trim();
+    const unita=field('appartamento').value.trim();
+    const key=normalizeTenantKeyText(nome);
+    if(!key) return;
+    listed.add(key);
+    const tel=field('telefono');
+    if(tel.value.trim()) return;
+    const hit=byNameUnit[key+'|'+normalizeTenantKeyText(unita)] || byName[key];
+    const label=nome+(unita?' ('+unita+')':'');
+    if(hit){
+      tel.value=hit.tel;
+      tel.classList.remove('missing-phone');
+      tel.classList.add('recovered-phone');
+      filled.push(label+' → '+hit.tel);
+    }else{
+      stillMissing.push(label);
+    }
+  });
+
+  const notListed=Object.entries(byName)
+    .filter(([key])=>!listed.has(key))
+    .map(([,r])=>r.nominativo+(r.unita?' ('+r.unita+')':'')+' → '+r.tel);
+
+  const parts=[];
+  if(filled.length){
+    parts.push('Recuperati '+filled.length+' numeri dalle ricevute (in verde):\n'+filled.join('\n')+
+      '\n\nControllali e premi «Salva modifiche affittuari» per salvarli.');
+  }else{
+    parts.push('Nessun numero recuperato: i campi vuoti non hanno corrispondenze nelle ricevute.');
+  }
+  if(stillMissing.length){
+    parts.push('Ancora senza numero (in rosso), da inserire a mano:\n'+stillMissing.join('\n'));
+  }
+  if(notListed.length){
+    parts.push('Nelle ricevute compaiono anche affittuari che NON sono in questo elenco (controlla se l\'elenco è aggiornato):\n'+notListed.join('\n'));
+  }
+  status.textContent=parts.join('\n\n');
 }
 
 async function saveTenantSetup(){
@@ -2237,7 +2320,7 @@ function resolveWhatsAppRecipient(saved){
 
 async function prepareWhatsAppSend(pdfName,messageText,recipient){
   if(!directoryHandle || !(await ensureFolderPermission())){
-    $('status').textContent='La cartella Ricevute non è disponibile.';
+    whatsAppProblem('La cartella Ricevute non è disponibile: la ricevuta NON è stata inviata.');
     return false;
   }
 
@@ -2284,6 +2367,22 @@ async function prepareWhatsAppSend(pdfName,messageText,recipient){
   }
   return true;
 }
+// v140: i problemi dell'invio WhatsApp devono essere VISIBILI. La riga di
+// stato sta nella pagina principale e resta coperta dall'anteprima PDF, da
+// cui di solito parte l'invio: un numero mancante passava inosservato.
+function whatsAppProblem(msg){
+  $('status').textContent=msg;
+  alert(msg);
+}
+
+function missingPhoneMessage(recipient,saved){
+  if(recipient.forced){
+    return '“Forza invio a” è attivo ma il numero WhatsApp di test è vuoto o non valido.\n\nApri ⚙ SetUp e correggilo.';
+  }
+  const who=recipient.name || (saved && saved.nominativo) || 'questo affittuario';
+  return 'Numero WhatsApp mancante per '+who+'.\n\nLa ricevuta NON è stata inviata.\nInserisci il numero in ⚙ SetUp → Elenco affittuari, premi «Salva modifiche affittuari» e riprova.';
+}
+
 async function sharePdfEntry(entry){
   if(!entry) return;
 
@@ -2300,15 +2399,13 @@ async function sharePdfEntry(entry){
     }
 
     if(!saved){
-      $('status').textContent='Non riesco a ricostruire i dati di questa ricevuta, quindi non posso preparare automaticamente il messaggio WhatsApp.';
+      whatsAppProblem('Non riesco a ricostruire i dati di questa ricevuta, quindi non posso preparare automaticamente il messaggio WhatsApp.');
       return;
     }
 
     const recipient=resolveWhatsAppRecipient(saved);
     if(!recipient.phone){
-      $('status').textContent=recipient.forced
-        ? '“Forza invio a” è attivo ma il numero WhatsApp di test è vuoto o non valido. Apri ⚙ SetUp e correggilo.'
-        : `Numero WhatsApp mancante per ${recipient.name || saved.nominativo}. Inseriscilo in ⚙ SetUp → Elenco affittuari.`;
+      whatsAppProblem(missingPhoneMessage(recipient,saved));
       return;
     }
     const testo=buildWhatsAppMessageFromSaved(saved);
@@ -2318,13 +2415,13 @@ async function sharePdfEntry(entry){
       $('status').textContent='WhatsApp: seleziono il destinatario e continuo automaticamente con PDF e messaggio…';
     }
   }catch(e){
-    $('status').textContent='Impossibile preparare WhatsApp: '+e.message;
+    whatsAppProblem('Impossibile preparare WhatsApp: '+e.message);
   }
 }
 
 async function shareCurrentPdf(){
   if(!currentPreviewFile || !currentPreviewName){
-    $('status').textContent='Nessun PDF disponibile da inviare.';
+    whatsAppProblem('Nessun PDF disponibile da inviare.');
     return;
   }
 
@@ -2332,9 +2429,7 @@ async function shareCurrentPdf(){
     const saved=rawFormData();
     const recipient=resolveWhatsAppRecipient(saved);
     if(!recipient.phone){
-      $('status').textContent=recipient.forced
-        ? '“Forza invio a” è attivo ma il numero WhatsApp di test è vuoto o non valido. Apri ⚙ SetUp e correggilo.'
-        : `Numero WhatsApp mancante per ${recipient.name || saved.nominativo}. Inseriscilo in ⚙ SetUp → Elenco affittuari.`;
+      whatsAppProblem(missingPhoneMessage(recipient,saved));
       return;
     }
     const testoWhatsApp=buildWhatsAppMessageFromSaved(saved);
@@ -2344,7 +2439,7 @@ async function shareCurrentPdf(){
       $('status').textContent='WhatsApp: seleziono il destinatario e continuo automaticamente con PDF e messaggio…';
     }
   }catch(e){
-    $('status').textContent='Impossibile preparare WhatsApp: '+e.message;
+    whatsAppProblem('Impossibile preparare WhatsApp: '+e.message);
   }
 }
 
@@ -2612,10 +2707,10 @@ async function toggleReceiptsList(){
     try{
       const ok=await ensureFolderPermission();
       if(ok){
-        await loadTenantsFile();
+        const tenantsOk=await loadTenantsFile();
         await loadLookup();
         await refreshFileList();
-        $('folderStatus').textContent='Cartella ricevute collegata.';
+        if(tenantsOk) $('folderStatus').textContent='Cartella ricevute collegata.';
       }else{
         $('fileList').innerHTML='<div class="muted">Autorizza l’accesso alla cartella già memorizzata.</div>';
       }
@@ -2634,8 +2729,9 @@ async function openSettings(){
     try{
       const ok=await ensureFolderPermission();
       if(ok){
-        await loadTenantsFile();
-        $('folderStatus').textContent='Cartella collegata. Dati affittuari letti da Affittuari.json.';
+        if(await loadTenantsFile()){
+          $('folderStatus').textContent='Cartella collegata. Dati affittuari letti da Affittuari.json.';
+        }
       }
     }catch(e){}
   }
@@ -2731,8 +2827,14 @@ function initPreviewModal(){
 
 
 
+// v140: true se Ricevute_Dati.json esiste ma non è stato letto bene. In quel
+// caso receiptLookup è vuoto solo in memoria: salvarlo cancellerebbe lo
+// storico delle ricevute (con i numeri WhatsApp), quindi non si scrive.
+let lookupLoadFailed=false;
+
 async function loadLookup(){
   receiptLookup={};
+  lookupLoadFailed=false;
   if(!directoryHandle) return;
   try{
     const fh=await directoryHandle.getFileHandle(LOOKUP_FILE_NAME);
@@ -2751,11 +2853,21 @@ async function loadLookup(){
     }
   }catch(e){
     receiptLookup={};
+    if(!(e && e.name==='NotFoundError')){
+      lookupLoadFailed=true;
+      const msg='ATTENZIONE: non riesco a leggere Ricevute_Dati.json ('+(e && e.message ? e.message : e)+'). '+
+        'Non lo modifico, così lo storico delle ricevute resta al sicuro. Ricarica la pagina tra qualche secondo.';
+      if($('status')) $('status').textContent=msg;
+      alert(msg);
+    }
   }
 }
 
 async function saveLookup(){
   if(!directoryHandle) return;
+  if(lookupLoadFailed){
+    throw new Error('Ricevute_Dati.json non è stato letto correttamente, quindi non lo sovrascrivo. Ricarica la pagina e riprova.');
+  }
   const fh=await directoryHandle.getFileHandle(LOOKUP_FILE_NAME,{create:true});
   const wr=await fh.createWritable();
   await wr.write(JSON.stringify(receiptLookup,null,2));
@@ -2904,6 +3016,9 @@ async function recoverLookupFromPdf(entry){
 
 async function recoverMissingLookup(files){
   let recovered=0;
+  // v140: se Ricevute_Dati.json non è stato letto, ogni PDF sembrerebbe
+  // "senza dati" e lo storico verrebbe riscritto con dati più poveri.
+  if(lookupLoadFailed) return 0;
   for(const entry of files){
     if(receiptLookup[entry.name]) continue;
     const restored=await recoverLookupFromPdf(entry);
@@ -3094,8 +3209,16 @@ function showDefaultPdfPath(){
   if(el && !el.value) el.value=DEFAULT_PDF_PATH;
 }
 
+// v140: true se Affittuari.json esiste ma non è stato letto correttamente.
+// Finché resta true il file NON va sovrascritto (nomi e numeri WhatsApp
+// verrebbero rimpiazzati da quelli, incompleti, in memoria).
+let tenantsLoadFailed=false;
+
 async function saveTenantsFile(){
   if(!directoryHandle) return false;
+  if(tenantsLoadFailed){
+    throw new Error('Affittuari.json non è stato letto correttamente, quindi non lo sovrascrivo. Ricarica la pagina e riprova.');
+  }
   if(!(await ensureFolderPermission())) return false;
   const fh=await directoryHandle.getFileHandle(TENANTS_FILE_NAME,{create:true});
   const wr=await fh.createWritable();
@@ -3111,38 +3234,61 @@ async function loadTenantsFile(){
     const permission=await directoryHandle.queryPermission({mode:'readwrite'});
     if(permission!=='granted') return false;
 
+    let parsed;
     try{
       const fh=await directoryHandle.getFileHandle(TENANTS_FILE_NAME);
       const file=await fh.getFile();
-      const parsed=JSON.parse(await file.text());
-
-      if(Array.isArray(parsed) && parsed.length){
-        PEOPLE=parsed.map(p=>({
-          nominativo:String(p.nominativo||''),
-          tipo:String(p.tipo||'Appartamento'),
-          appartamento:String(p.appartamento||''),
-          indirizzo:String(p.indirizzo||''),
-          canone:Number(p.canone||0),
-          telefono:String(p.telefono||p.phone||'')
-        }));
-        const boxesAdded=syncBoxTenantsV110();
-        if(boxesAdded) await saveTenantsFile();
+      parsed=JSON.parse(await file.text());
+    }catch(e){
+      if(e && e.name==='NotFoundError'){
+        // Il file non esiste ancora: crealo dai dati di base incorporati.
+        // Il localStorage resta solo una copia di sicurezza e non prevale più sul JSON.
+        tenantsLoadFailed=false;
+        PEOPLE=DEFAULT_PEOPLE.map(p=>({...p}));
+        syncBoxTenantsV110();
+        await saveTenantsFile();
         localStorage.setItem('ricevuteAffittuari',JSON.stringify(PEOPLE));
         populatePeople();
         return true;
       }
-    }catch(e){
-      // Se il file non esiste ancora, crealo dai dati di base incorporati.
-      // Il localStorage resta solo una copia di sicurezza e non prevale più sul JSON.
-      PEOPLE=DEFAULT_PEOPLE.map(p=>({...p}));
-      syncBoxTenantsV110();
-      await saveTenantsFile();
+      // v140: fino alla v139 QUALSIASI errore di lettura (anche un server
+      // momentaneamente occupato) finiva qui sopra e Affittuari.json veniva
+      // riscritto con l'elenco di base, che non ha i numeri WhatsApp.
+      // Ora il file esistente non si tocca: si avvisa e si aspetta.
+      reportTenantsLoadProblem(e && e.message ? e.message : String(e));
+      return false;
+    }
+
+    if(Array.isArray(parsed) && parsed.length){
+      tenantsLoadFailed=false;
+      PEOPLE=parsed.map(p=>({
+        nominativo:String(p.nominativo||''),
+        tipo:String(p.tipo||'Appartamento'),
+        appartamento:String(p.appartamento||''),
+        indirizzo:String(p.indirizzo||''),
+        canone:Number(p.canone||0),
+        telefono:String(p.telefono||p.phone||'')
+      }));
+      const boxesAdded=syncBoxTenantsV110();
+      if(boxesAdded) await saveTenantsFile();
       localStorage.setItem('ricevuteAffittuari',JSON.stringify(PEOPLE));
       populatePeople();
       return true;
     }
+
+    reportTenantsLoadProblem('il file è vuoto o non contiene un elenco di affittuari');
   }catch(e){}
   return false;
+}
+
+function reportTenantsLoadProblem(detail){
+  tenantsLoadFailed=true;
+  const msg='ATTENZIONE: non riesco a leggere Affittuari.json ('+detail+'). '+
+    'Non lo modifico, così nomi e numeri WhatsApp restano al sicuro. '+
+    'Ricarica la pagina tra qualche secondo; se il problema resta, avvisa Mario.';
+  if($('folderStatus')) $('folderStatus').textContent=msg;
+  if($('status')) $('status').textContent=msg;
+  alert(msg);
 }
 
 let loadedReceiptContext=null;
@@ -3926,7 +4072,8 @@ if(document.readyState==='loading'){
     </div>
     <div class="settings-content">
       <div class="history-sep">Invio WhatsApp automatico e App</div>
-      <ol class="history-list" reversed start="24">
+      <ol class="history-list" reversed start="25">
+        <li><b>v140</b> — Se manca il numero WhatsApp compare un avviso ben visibile (prima restava nascosto sotto l'anteprima). Affittuari.json e Ricevute_Dati.json non vengono più riscritti se la lettura non riesce, e il server ne tiene copie di sicurezza. Nuovo pulsante in SetUp per recuperare i numeri mancanti dalle ricevute già fatte.</li>
         <li><b>v139</b> — Installatore «di riparazione»: rimette al suo posto l'App della casetta (anche nel Dock) e l'Helper che fa partire l'invio WhatsApp, recuperandolo dal Cestino se serve, e lascia sulla Scrivania un file di diagnosi.</li>
         <li><b>v138</b> — La storia delle versioni parte dalla più recente: le novità sono in cima.</li>
         <li><b>v137</b> — Questo pulsante «?» con la storia delle versioni.</li>
@@ -4031,6 +4178,8 @@ if(document.readyState==='loading'){
           </div>
           <div id="tenantSetupRows"></div>
         </div>
+        <button type="button" class="setup-recover wide" onclick="recoverTenantPhonesFromReceipts()" title="Riempie i numeri WhatsApp vuoti (in rosso) con quelli delle ricevute già fatte. Non salva nulla da solo.">Recupera i numeri mancanti dalle ricevute</button>
+        <div class="status" id="tenantRecoverStatus"></div>
         <button type="button" class="setup-save wide" onclick="saveTenantSetup()">Salva modifiche affittuari</button>
         <div class="status" id="tenantSetupStatus"></div>
       </div>

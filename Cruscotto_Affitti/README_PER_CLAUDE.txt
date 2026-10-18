@@ -485,6 +485,45 @@ Su macOS si possono compilare in .scpt con:
    ripresenta: il badge accanto al titolo mostra la versione del motore
    installata, ed è il primo controllo da fare.
 
+6y. v140 — numero mancante visibile + dati affittuari/ricevute blindati
+   Segnalazioni di Mario: (1) un invio a un affittuario senza numero non
+   dava nessun avviso; (2) Rachida (appartamento) non ha più il numero.
+   (1) Il messaggio "Numero WhatsApp mancante" finiva nella riga #status
+   della pagina principale, COPERTA dall'anteprima PDF da cui parte
+   l'invio. Ora whatsAppProblem() lo scrive lì e mostra anche un alert().
+   (2) CAUSA (riprodotta con Playwright sulla v139): loadTenantsFile()
+   trattava QUALSIASI errore di lettura di Affittuari.json (500, connessione
+   rifiutata, JSON a metà) come "file inesistente" e lo riscriveva con
+   DEFAULT_PEOPLE, che NON ha i numeri. Un solo errore => numeri degli
+   APPARTAMENTI persi in silenzio. I numeri dei 24 BOX invece sono
+   incorporati nell'HTML (BOX_TENANTS_V107) e syncBoxTenantsV110 li
+   rimette a ogni avvio, per questo i Box li hanno ancora. Probabile
+   innesco: il server (HTTPServer, una richiesta alla volta, coda 5)
+   rifiuta le richieste in eccesso. Stesso rischio per Ricevute_Dati.json
+   (loadLookup vuoto + recoverMissingLookup/saveLookup = storico perso).
+   Correzioni:
+   - ServerFileHandle.getFile: NotFoundError SOLO con 404;
+   - loadTenantsFile: ricrea dai dati di base solo con NotFoundError;
+     altrimenti tenantsLoadFailed=true, avviso (alert) e saveTenantsFile
+     rifiuta di scrivere finché la pagina non rilegge bene il file;
+   - loadLookup/saveLookup/recoverMissingLookup: stessa logica con
+     lookupLoadFailed;
+   - SetUp: pulsante "Recupera i numeri mancanti dalle ricevute": riempie
+     SOLO i campi vuoti con il telefono della ricevuta più recente (stesso
+     nome+unità, poi solo nome) da Ricevute_Dati.json (dalla v115 ogni
+     ricevuta salva il telefono). Non salva da solo. Segnala chi resta
+     senza numero (campi in rosso) e chi compare nelle ricevute ma non
+     nell'elenco;
+   - server: copia di sicurezza in ~/Library/Application Support/
+     CruscottoAffitti/Backup_Dati/ di Affittuari.json e Ricevute_Dati.json
+     prima di ogni PUT/DELETE (ultime 100 per file); request_queue_size 64;
+   - installer: copia (sola lettura) dei due file nel Backup_Installer.
+   Test: 23 prove Playwright sul server reale (avviso dal pulsante lista e
+   dall'anteprima, recupero, salvataggio con backup, 500 e connessione
+   rifiutata su entrambi i file, 404 vero, storia delle versioni).
+   NB: "AppNum08" nei nomi PDF dei Box è il numero del BOX (BEHI MOHAMED è
+   il Box 08), non l'appartamento 8.
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"

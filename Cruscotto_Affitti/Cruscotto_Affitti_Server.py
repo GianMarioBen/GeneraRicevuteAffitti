@@ -26,6 +26,40 @@ MAX_UPLOAD = 80 * 1024 * 1024
 APP_SUPPORT_DIR = os.path.expanduser("~/Library/Application Support/CruscottoAffitti")
 ENGINE_VERSION_FILE = os.path.join(APP_SUPPORT_DIR, "WhatsApp_Engine_Version.json")
 
+# v140: copie di sicurezza automatiche dei file dati più preziosi. Prima di
+# ogni sovrascrittura (o cancellazione) la versione precedente viene copiata
+# qui, fuori da ElencoRicevute, tenendo le ultime BACKUP_KEEP per file.
+# Nasce dalla perdita dei numeri WhatsApp in Affittuari.json (ottobre 2026).
+BACKUP_DATA_DIR = os.path.join(APP_SUPPORT_DIR, "Backup_Dati")
+PROTECTED_DATA_FILES = ("Affittuari.json", "Ricevute_Dati.json")
+BACKUP_KEEP = 100
+
+
+def backup_data_file(name, target, new_payload=None):
+    """Copia la versione attuale di un file protetto prima di cambiarlo.
+    Non blocca mai il salvataggio: un errore qui viene solo registrato."""
+    if name not in PROTECTED_DATA_FILES or not os.path.isfile(target):
+        return
+    try:
+        with open(target, "rb") as fh:
+            old = fh.read()
+        if new_payload is not None and old == new_payload:
+            return
+        os.makedirs(BACKUP_DATA_DIR, exist_ok=True)
+        base, ext = os.path.splitext(name)
+        now = time.time()
+        stamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(now)) + "_%03d" % int((now % 1) * 1000)
+        with open(os.path.join(BACKUP_DATA_DIR, "%s_%s%s" % (base, stamp, ext)), "wb") as fh:
+            fh.write(old)
+        copies = sorted(
+            f for f in os.listdir(BACKUP_DATA_DIR)
+            if f.startswith(base + "_") and f.endswith(ext)
+        )
+        for f in copies[:-BACKUP_KEEP]:
+            os.unlink(os.path.join(BACKUP_DATA_DIR, f))
+    except Exception as exc:
+        sys.stderr.write("ATTENZIONE: backup di %s non riuscito: %s\n" % (name, exc))
+
 def read_whatsapp_engine_info():
     try:
         with open(ENGINE_VERSION_FILE, "r", encoding="utf-8") as fh:
@@ -262,6 +296,7 @@ class Handler(BaseHTTPRequestHandler):
             payload = self.rfile.read(length)
             os.makedirs(DATA_DIR, exist_ok=True)
             target = data_path(name)
+            backup_data_file(name, target, payload)
             temp = target + ".cruscotto-tmp-%d" % os.getpid()
 
             with open(temp, "wb") as fh:
@@ -297,6 +332,7 @@ class Handler(BaseHTTPRequestHandler):
             if not os.path.isfile(path):
                 self.send_error_json("Non è un file", 400)
                 return
+            backup_data_file(name, path)
             os.unlink(path)
             self.send_json({"ok": True, "name": name})
         except ValueError as exc:
@@ -304,9 +340,17 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self.send_error_json(exc, 500)
 
+class Server(HTTPServer):
+    # v140: il server risponde a una richiesta alla volta; con la coda
+    # standard (5) le richieste in più arrivate insieme venivano rifiutate,
+    # e una lettura rifiutata di Affittuari.json bastava alla pagina per
+    # ricrearlo dall'elenco di base. Coda più lunga: le richieste aspettano.
+    request_queue_size = 64
+
+
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
-    httpd = HTTPServer((HOST, PORT), Handler)
+    httpd = Server((HOST, PORT), Handler)
     print("Cruscotto Affitti server attivo su http://%s:%d" % (HOST, PORT))
     print("Dati:", DATA_DIR)
     httpd.serve_forever()

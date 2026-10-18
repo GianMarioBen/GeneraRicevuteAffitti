@@ -222,9 +222,12 @@ backup_if_exists "$HTML_TARGET" "Generatore_HTML"
 backup_if_exists "$PLIST_TARGET" "LaunchAgent_Plist"
 backup_dir_if_exists "$LAUNCHER_APP_TARGET" "Launcher_App"
 
-# Nota IMPORTANTE: NON facciamo alcun backup/tocco di $DATA_DIR
-# (ElencoRicevute) perché questo installer non lo scrive mai.
-log "NON toccato (come da regola): $DATA_DIR"
+# Dati degli affittuari: solo una COPIA di sicurezza in sola lettura (cp
+# legge da ElencoRicevute e scrive nella cartella di backup). In
+# ElencoRicevute questo installer non scrive mai nulla.
+backup_if_exists "$DATA_DIR/Affittuari.json" "Dati_Affittuari"
+backup_if_exists "$DATA_DIR/Ricevute_Dati.json" "Dati_Ricevute"
+log "NON modificato (come da regola): $DATA_DIR"
 
 # --- 3. Compila ed installa il motore WhatsApp @@VER@@ -----------------------
 

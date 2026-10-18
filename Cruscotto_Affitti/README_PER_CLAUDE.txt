@@ -558,6 +558,19 @@ Su macOS si possono compilare in .scpt con:
    Attenzione ai processi orfani (server/Chromium di prove interrotte):
    setup.sh si ferma se la porta 8765 è già occupata.
 
+7b. v142 — titolo della pagina (linguetta Chrome / finestra dell'App):
+   da "Cruscotto Affitti - Generatore Ricevute" a "Generatore ricevute
+   affitti" (richiesta di Mario). L'icona (favicon PNG della casetta) NON
+   cambia: Mario ha chiarito che quella esistente va benissimo; la
+   richiesta "Pagamenti affittuari / Mediolanum" era una sua svista, da
+   ignorare. Il motore riporta davanti il Generatore con AXRaise su
+   "name contains Generatore Ricevute": AppleScript confronta ignorando
+   maiuscole/minuscole, quindi il nuovo titolo va bene (e prima ancora lo
+   trova per URL). Prove: test_v140.js (24, compreso il titolo) e
+   test_v141.js (15). setup.sh: corretto il PID del server (prima era
+   quello di una sotto-shell, il kill non chiudeva il server => server
+   orfani sulla porta 8765).
+
 8b. Installer, aggiornamento: ora compila e installa anche il launcher
    Nella sezione 7 dell'installer (dopo aver ricaricato il LaunchAgent):
    backup dell'eventuale "~/Applications/Cruscotto Affitti.app"

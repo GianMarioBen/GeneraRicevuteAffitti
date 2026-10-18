@@ -30,7 +30,8 @@ const check = (ok, what) => { console.log((ok ? 'OK   ' : 'FAIL ') + what); if (
   setup();
   let { ctx, page, dialogs, errors } = await openPage();
   const title = await page.textContent('h1');
-  check(/v141/.test(title), 'etichetta v141 nel titolo');
+  check(/v142/.test(title), 'etichetta v142 nel titolo');
+  check(await page.title() === 'Generatore ricevute affitti', 'nome nella linguetta: ' + await page.title());
   const people = await page.evaluate(() => PEOPLE.filter(p => !/^BOX/i.test(p.tipo || '')).map(p => p.nominativo + '=' + p.telefono));
   check(people.includes('ANTAR=3331112222') && people.includes('RACHIDA='), 'affittuari letti da Affittuari.json: ' + people.slice(0, 3).join(', '));
   check(dialogs.length === 0, 'nessun avviso all\'avvio normale (' + dialogs.join(' | ') + ')');
@@ -113,7 +114,7 @@ const check = (ok, what) => { console.log((ok ? 'OK   ' : 'FAIL ') + what); if (
   await page.evaluate(() => openHistory());
   const items = await page.$$eval('#historyModal li', l => l.length);
   const first = await page.textContent('#historyModal li');
-  check(items === 26 && /^v141/.test(first.trim()), 'storia: 26 voci, la prima è v141');
+  check(items === 27 && /^v142/.test(first.trim()), 'storia: 27 voci, la prima è v142');
   check(errors.length === 0, 'nessun errore JavaScript');
   await ctx.close();
 

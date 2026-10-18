@@ -11,7 +11,7 @@ const tel=(j,n)=>(j.find(p=>p.nominativo===n)||{}).telefono;
   // Scenario A: file mancante -> ricreato dall'elenco di base, con i numeri
   execSync(T+'/setup.sh',{stdio:'ignore'}); fs.unlinkSync(D+'/Affittuari.json');
   let r=await load(); let j=JSON.parse(fs.readFileSync(D+'/Affittuari.json','utf8'));
-  check(/v141/.test(r.h),'etichetta v141');
+  check(/v142/.test(r.h),'etichetta v142');
   check(tel(j,'RACHIDA')==='3271242094','A: RACHIDA ha il numero 3271242094');
   check(tel(j,'KYOSEV')==='3273555511' && tel(j,'AHMED SHAABAM MAMDOUH FARAG')==='3398809798','A: Sordio e Bosco B riempiti');
   check(!tel(j,'SALAHELDIN MOHAMED SAKR') && !tel(j,'ELSAYED'),'A: App 7 e Bosco A restano vuoti (numero non fornito)');
